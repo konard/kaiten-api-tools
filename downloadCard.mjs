@@ -22,8 +22,10 @@ const use = await makeUse({ meta: import.meta, scriptPath: import.meta.url });
 const { config } = await use('dotenv@16.1.4');
 config({ path: path.resolve(process.cwd(), '.env') });
 
-const axios = await use('axios@1.5.0');
-const TurndownService = (await use('turndown@7.1.1')).default;
+// Import axios and turndown correctly
+const axiosModule = await use('axios@1.5.0');
+const axios = axiosModule.default || axiosModule;
+const TurndownService = await use('turndown@7.1.1');
 
 /**
  * Download Kaiten card data and convert to Markdown.

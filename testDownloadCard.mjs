@@ -26,7 +26,7 @@ config({ path: path.resolve(process.cwd(), '.env') });
 
 // Import uvu test runner and assertions via use-m
 const { test } = await use('uvu@0.5.6');
-const { equal } = await use('uvu/assert@0.5.6');
+const { equal } = await use('uvu@0.5.6/assert');
 
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);

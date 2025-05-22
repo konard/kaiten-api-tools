@@ -16,7 +16,9 @@ import path from 'path';
 // Dynamically load use-m
 const resp = await fetch('https://unpkg.com/use-m/use.js');
 const script = await resp.text();
-const { use } = eval(script);
+const { makeUse } = eval(script);
+// Create use() bound to this module's context
+const use = await makeUse({ meta: import.meta });
 
 // Load environment variables from .env
 const { config } = await use('dotenv@16.1.4');

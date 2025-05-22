@@ -24,31 +24,30 @@ const use = await makeUse({ meta: import.meta, scriptPath: import.meta.url });
 const { config } = await use('dotenv@16.1.4');
 config({ path: path.resolve(process.cwd(), '.env') });
 
-// Import Jest globals for assertions
-const { expect, describe, it } = await use('@jest/globals@29.6.0');
+// Import uvu test runner and assertions via use-m
+const { test } = await use('uvu@0.5.6');
+const { equal } = await use('uvu/assert@0.5.6');
 
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Validate environment
+// Validate environment variables
 const cardId = process.env.DEFAULT_CARD_ID;
 const token = process.env.KAITEN_API_TOKEN;
 if (!cardId) throw new Error('Set environment variable DEFAULT_CARD_ID');
 if (!token) throw new Error('Set environment variable KAITEN_API_TOKEN');
 const downloadScript = path.join(__dirname, 'downloadCard.mjs');
 
-describe('downloadCardToMarkdown function', () => {
-  it('should fetch and convert a card to markdown with a heading', async () => {
-    const md = await downloadCardToMarkdown({ cardId, token });
-    expect(md.startsWith('# ')).toBe(true);
-  });
+test('function export: should fetch and convert a card to markdown with a heading', async () => {
+  const md = await downloadCardToMarkdown({ cardId, token });
+  equal(md.startsWith('# '), true);
 });
 
-describe('downloadCard CLI', () => {
-  it('should match the function export output', async () => {
-    const mdFunc = await downloadCardToMarkdown({ cardId, token });
-    const { stdout } = await execAsync(`node ${downloadScript} ${cardId}`);
-    expect(stdout.trim()).toBe(mdFunc.trim());
-  });
-}); 
+test('CLI: should match the function export output', async () => {
+  const mdFunc = await downloadCardToMarkdown({ cardId, token });
+  const { stdout } = await execAsync(`node ${downloadScript} ${cardId}`);
+  equal(stdout.trim(), mdFunc.trim());
+});
+
+test.run(); 

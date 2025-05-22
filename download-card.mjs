@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * downloadCard.mjs
+ * download-card.mjs
  * Fetches a Kaiten card by ID and outputs it as Markdown.
  * Usage:
- *   node downloadCard.mjs <cardId> [outputFile]
+ *   node download-card.mjs <cardId> [outputFile]
  * Environment Variables:
  *   KAITEN_API_TOKEN - Bearer token for authentication.
  */
@@ -59,7 +59,7 @@ const invokedPath = path.resolve(process.cwd(), process.argv[1] || '');
 if (invokedPath === __filename) {
   const [, , cardId, outputFile] = process.argv;
   if (!cardId) {
-    console.error('Usage: downloadCard.mjs <cardId> [outputFile]');
+    console.error('Usage: download-card.mjs <cardId> [outputFile]');
     process.exit(1);
   }
   const token = process.env.KAITEN_API_TOKEN;

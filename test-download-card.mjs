@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * testDownloadCard.mjs
+ * test-download-card.mjs
  * E2E tests for downloadCard.mjs using both function export and CLI.
- * Usage: node testDownloadCard.mjs
+ * Usage: node test-download-card.mjs
  * Environment Variables:
  *   DEFAULT_CARD_ID - Kaiten card ID to test.
  *   KAITEN_API_TOKEN - API token for Kaiten.
@@ -37,7 +37,7 @@ const cardId = process.env.DEFAULT_CARD_ID;
 const token = process.env.KAITEN_API_TOKEN;
 if (!cardId) throw new Error('Set environment variable DEFAULT_CARD_ID');
 if (!token) throw new Error('Set environment variable KAITEN_API_TOKEN');
-const downloadScript = path.join(__dirname, 'downloadCard.mjs');
+const downloadScript = path.join(__dirname, 'download-card.mjs');
 
 test('function export: should fetch and convert a card to markdown with a heading', async () => {
   const md = await downloadCardToMarkdown({ cardId, token });

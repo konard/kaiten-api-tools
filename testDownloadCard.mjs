@@ -18,7 +18,7 @@ const resp = await fetch('https://unpkg.com/use-m/use.js');
 const script = await resp.text();
 const { makeUse } = eval(script);
 // Create use() bound to this module's context
-const use = await makeUse({ meta: import.meta });
+const use = await makeUse({ meta: import.meta, scriptPath: import.meta.url });
 
 // Load environment variables from .env
 const { config } = await use('dotenv@16.1.4');

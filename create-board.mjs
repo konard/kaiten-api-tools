@@ -49,9 +49,9 @@ export async function createBoard({ spaceId, name, token = process.env.KAITEN_AP
 }
 
 // If run as CLI
-const __filename = fileURLToPath(import.meta.url);
+const currentFilePath = fileURLToPath(import.meta.url);
 const invokedPath = path.resolve(process.cwd(), process.argv[1] || '');
-if (invokedPath === __filename) {
+if (invokedPath === currentFilePath) {
   const [, , spaceId, name, outputFile] = process.argv;
   if (!spaceId || !name) {
     console.error('Usage: create-board.mjs <spaceId> <boardName> [outputFile]');

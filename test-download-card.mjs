@@ -34,8 +34,8 @@ const axiosModule = await use('axios@1.5.0');
 const axios = axiosModule.default || axiosModule;
 
 const execAsync = promisify(exec);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const currentFilePath = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(currentFilePath);
 
 // Validate environment variables
 const token = process.env.KAITEN_API_TOKEN;

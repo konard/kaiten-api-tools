@@ -45,9 +45,9 @@ export async function createCard({ boardId, name, token = process.env.KAITEN_API
 }
 
 // If run as CLI
-const __filename = fileURLToPath(import.meta.url);
+const currentFilePath = fileURLToPath(import.meta.url);
 const invokedPath = path.resolve(process.cwd(), process.argv[1] || '');
-if (invokedPath === __filename) {
+if (invokedPath === currentFilePath) {
   const [, , boardId, name, outputFile] = process.argv;
   if (!boardId || !name) {
     console.error('Usage: create-card.mjs <boardId> <cardName> [outputFile]');

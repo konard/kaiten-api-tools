@@ -53,9 +53,9 @@ export async function downloadCardToMarkdown({ cardId, token = process.env.KAITE
 }
 
 // If run as CLI
-const __filename = fileURLToPath(import.meta.url);
+const currentFilePath = fileURLToPath(import.meta.url);
 const invokedPath = path.resolve(process.cwd(), process.argv[1] || '');
-if (invokedPath === __filename) {
+if (invokedPath === currentFilePath) {
   const [, , cardId, outputFile] = process.argv;
   if (!cardId) {
     console.error('Usage: download-card.mjs <cardId> [outputFile]');

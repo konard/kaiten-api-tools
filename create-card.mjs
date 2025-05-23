@@ -35,31 +35,34 @@ const axios = axiosModule.default || axiosModule;
  * @param {string} [options.apiBase] - Base URL.
  * @returns {Promise<object>} - Created card object.
  */
-export async function createCard({ spaceId, boardId, name, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
+export async function createCard({ boardId, name, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
   if (!boardId) throw new Error('boardId is required');
   if (!name) throw new Error('name is required');
   if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
-  let url;
-  let payload;
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  if (spaceId) {
-    // Create under specific space and board
-    url = `${apiBase}/spaces/${spaceId}/boards/${boardId}/cards`;
-    payload = { title: name };
-  } else {
-    // Top-level cards endpoint
-    url = `${apiBase}/cards`;
-    payload = { name, board_id: Number(boardId) };
+  // Fetch board metadata to get space_id, default column and lane IDs
+  const boardResp = await axios.get(`${apiBase}/boards/${boardId}`, { headers });
+  const boardData = boardResp.data;
+  const spaceId = boardData.space_id;
+  const columnId = boardData.columns?.[0]?.id;
+  const laneId = boardData.lanes?.[0]?.id;
+  if (!spaceId || !columnId || !laneId) {
+    throw new Error('Board metadata missing space_id, columns, or lanes');
   }
-  const response = await axios.post(url, payload, { headers });
-  // Normalize name field
-  return { ...response.data, name: response.data.title || response.data.name };
+  // Create card under the specific space and board with required payload
+  const url = `${apiBase}/spaces/${spaceId}/boards/${boardId}/cards`;
+  const response = await axios.post(
+    url,
+    { title: name, column_id: columnId, lane_id: laneId },
+    { headers }
+  );
+  return { ...response.data, name: response.data.title };
 }
 
 // If run as CLI
-const __filename = fileURLToPath(import.meta.url);
+const currentFilePath = fileURLToPath(import.meta.url);
 const invokedPath = path.resolve(process.cwd(), process.argv[1] || '');
-if (invokedPath === __filename) {
+if (invokedPath === currentFilePath) {
   const [, , spaceId, boardId, name, outputFile] = process.argv;
   if (!spaceId || !boardId || !name) {
     console.error('Usage: create-card.mjs <spaceId> <boardId> <cardName> [outputFile]');

@@ -50,11 +50,16 @@ export async function createSpace({ name, token = process.env.KAITEN_API_TOKEN, 
     throw new Error('Set environment variable KAITEN_API_BASE_URL');
   }
   const url = `${apiBase}/spaces`;
-  log('Sending POST request to %s with payload %O', url, { name });
+  log('Sending POST request to %s with payload %O', url, { title: name });
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await axios.post(url, { name }, { headers });
-  log('Received response: %O', response.data);
-  return response.data;
+  try {
+    const response = await axios.post(url, { title: name }, { headers });
+    log('Received response: %O', response.data);
+    return response.data;
+  } catch (err) {
+    log('API error response: %O', err.response?.data || err.message);
+    throw err;
+  }
 }
 
 // If run as CLI
@@ -76,6 +81,9 @@ if (invokedPath === __filename) {
       console.log(output);
     }
   } catch (err) {
+    if (err.response?.data) {
+      console.error(JSON.stringify(err.response.data, null, 2));
+    }
     console.error(err);
     process.exit(1);
   }

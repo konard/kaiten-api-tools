@@ -50,10 +50,10 @@ test.before(() => {
 });
 
 // Test function export
-test('function export: createSpace returns a space with id and correct name', async () => {
+test('function export: createSpace returns a space with id and correct title', async () => {
   space = await createSpace({ name: spaceName, token, apiBase });
-  is(typeof space.id, 'string');
-  is(space.name, spaceName);
+  is(typeof space.id, 'number');
+  is(space.title, spaceName);
 });
 
 // Test CLI
@@ -61,8 +61,8 @@ test('CLI: create-space CLI outputs matching JSON with debug tracing', async () 
   const { stdout, stderr } = await execAsync(`DEBUG=kaiten:create-space node ${path.resolve(__dirname, 'create-space.mjs')} ${spaceName}`);
   // Optionally inspect stderr for debug logs
   cliSpace = JSON.parse(stdout);
-  is(typeof cliSpace.id, 'string');
-  is(cliSpace.name, spaceName);
+  is(typeof cliSpace.id, 'number');
+  is(cliSpace.title, spaceName);
 });
 
 // Cleanup resources after tests

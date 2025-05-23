@@ -40,16 +40,31 @@ export async function createCard({ boardId, name, token = process.env.KAITEN_API
   if (!name) throw new Error('name is required');
   if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  // Fetch board metadata to get space_id, default column and lane IDs
-  const boardResp = await axios.get(`${apiBase}/boards/${boardId}`, { headers });
-  const boardData = boardResp.data;
-  const spaceId = boardData.space_id;
-  const columnId = boardData.columns?.[0]?.id;
-  const laneId = boardData.lanes?.[0]?.id;
-  if (!spaceId || !columnId || !laneId) {
-    throw new Error('Board metadata missing space_id, columns, or lanes');
+  // Find the space for this board by listing spaces and their boards
+  const spacesResp = await axios.get(`${apiBase}/spaces`, { headers });
+  const spaces = spacesResp.data;
+  let spaceId;
+  let boardObj;
+  for (const sp of spaces) {
+    const boardsResp = await axios.get(
+      `${apiBase}/spaces/${sp.id}/boards`,
+      { headers }
+    );
+    boardObj = boardsResp.data.find(b => String(b.id) === String(boardId));
+    if (boardObj) {
+      spaceId = sp.id;
+      break;
+    }
   }
-  // Create card under the specific space and board with required payload
+  if (!spaceId || !boardObj) {
+    throw new Error('Board not found in any space');
+  }
+  const columnId = boardObj.columns?.[0]?.id;
+  const laneId = boardObj.lanes?.[0]?.id;
+  if (!columnId || !laneId) {
+    throw new Error('Board metadata missing columns or lanes');
+  }
+  // Create the card under space and board
   const url = `${apiBase}/spaces/${spaceId}/boards/${boardId}/cards`;
   const response = await axios.post(
     url,

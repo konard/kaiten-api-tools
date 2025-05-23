@@ -86,10 +86,18 @@ test.after(async () => {
   const base = apiBase.replace(/\/v1$/, '/latest');
   // Delete created column
   if (cliColumn?.id) {
-    await axios.delete(`${base}/boards/${board.id}/columns/${cliColumn.id}`, { headers });
+    try {
+      await axios.delete(`${base}/boards/${board.id}/columns/${cliColumn.id}`, { headers });
+    } catch (e) {
+      // ignore errors deleting last column
+    }
   }
   if (column?.id) {
-    await axios.delete(`${base}/boards/${board.id}/columns/${column.id}`, { headers });
+    try {
+      await axios.delete(`${base}/boards/${board.id}/columns/${column.id}`, { headers });
+    } catch (e) {
+      // ignore errors deleting last column
+    }
   }
   // Delete board and space
   if (board?.id) {

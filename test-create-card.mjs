@@ -23,6 +23,9 @@ const { use } = eval(
 // Load .env
 const { config } = await use('dotenv@16.1.4');
 config({ path: path.resolve(process.cwd(), '.env') });
+// Enable debug tracing from create-*.mjs modules
+process.env.DEBUG = process.env.DEBUG ? process.env.DEBUG + ',kaiten:*' : 'kaiten:*';
+console.log('Debugging enabled for tests:', process.env.DEBUG);
 
 // Import test runner and assertions
 const { test } = await use('uvu@0.5.6');
@@ -57,22 +60,28 @@ test.before(async () => {
   cardName = `test-card-${timestamp}`;
   space = await createSpace({ name: spaceName, token, apiBase });
   board = await createBoard({ spaceId: space.id, name: boardName, token, apiBase });
+  console.log('Setup complete: space.id=', space.id, 'board.id=', board.id);
 });
 
 // Note: space and board are created in before hook
 // Test card creation (function)
 test('function export: createCard returns a card with id and correct name', async () => {
+  console.log('Function test: calling createCard with boardId=', board.id, ', name=', cardName);
   card = await createCard({ boardId: board.id, name: cardName, token, apiBase });
+  console.log('Function test: createCard returned', card);
   is(typeof card.id, 'number');
   is(card.name, cardName);
 });
 
 // Test CLI for card
 test('CLI: create-card CLI outputs matching JSON', async () => {
+  console.log('CLI test: invoking create-card CLI with boardId=', board.id, ' name=', cardName);
   const { stdout } = await execAsync(
     `node ${path.resolve(__dirname, 'create-card.mjs')} ${board.id} ${cardName}`
   );
+  console.log('CLI test: stdout from create-card CLI:', stdout);
   cliCard = JSON.parse(stdout);
+  console.log('CLI test: parsed CLI output:', cliCard);
   is(typeof cliCard.id, 'number');
   is(cliCard.name, cardName);
 });

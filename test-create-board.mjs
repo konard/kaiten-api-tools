@@ -15,10 +15,9 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 
 // Dynamically load use-m
-const resp = await fetch('https://unpkg.com/use-m/use.js');
-const script = await resp.text();
-const { makeUse } = eval(script);
-const use = await makeUse({ meta: import.meta, scriptPath: import.meta.url });
+const { use } = eval(
+  await fetch('https://unpkg.com/use-m/use.js').then(u => u.text())
+);
 
 // Load .env
 const { config } = await use('dotenv@16.1.4');

@@ -3,7 +3,7 @@
  * create-card.mjs
  * Creates a Kaiten card under a board and outputs it as JSON.
  * Usage:
- *   node create-card.mjs <boardId> <cardName> [outputFile]
+ *   node create-card.mjs <spaceId> <boardId> <cardName> [outputFile]
  * Environment Variables:
  *   KAITEN_API_TOKEN - Bearer token for authentication.
  *   KAITEN_API_BASE_URL - Base URL for the API.
@@ -28,33 +28,45 @@ const axios = axiosModule.default || axiosModule;
 /**
  * Create a Kaiten card under a given board.
  * @param {object} options
+ * @param {string} options.spaceId - ID of the space to attach the card to.
  * @param {string} options.boardId - ID of the board to attach the card to.
  * @param {string} options.name - Name of the card.
  * @param {string} [options.token] - API token.
  * @param {string} [options.apiBase] - Base URL.
  * @returns {Promise<object>} - Created card object.
  */
-export async function createCard({ boardId, name, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
+export async function createCard({ spaceId, boardId, name, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
   if (!boardId) throw new Error('boardId is required');
   if (!name) throw new Error('name is required');
   if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
-  const url = `${apiBase}/cards`;
+  let url;
+  let payload;
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await axios.post(url, { name, board_id: boardId }, { headers });
-  return response.data;
+  if (spaceId) {
+    // Create under specific space and board
+    url = `${apiBase}/spaces/${spaceId}/boards/${boardId}/cards`;
+    payload = { title: name };
+  } else {
+    // Top-level cards endpoint
+    url = `${apiBase}/cards`;
+    payload = { name, board_id: Number(boardId) };
+  }
+  const response = await axios.post(url, payload, { headers });
+  // Normalize name field
+  return { ...response.data, name: response.data.title || response.data.name };
 }
 
 // If run as CLI
-const currentFilePath = fileURLToPath(import.meta.url);
+const __filename = fileURLToPath(import.meta.url);
 const invokedPath = path.resolve(process.cwd(), process.argv[1] || '');
-if (invokedPath === currentFilePath) {
-  const [, , boardId, name, outputFile] = process.argv;
-  if (!boardId || !name) {
-    console.error('Usage: create-card.mjs <boardId> <cardName> [outputFile]');
+if (invokedPath === __filename) {
+  const [, , spaceId, boardId, name, outputFile] = process.argv;
+  if (!spaceId || !boardId || !name) {
+    console.error('Usage: create-card.mjs <spaceId> <boardId> <cardName> [outputFile]');
     process.exit(1);
   }
   try {
-    const card = await createCard({ boardId, name });
+    const card = await createCard({ spaceId, boardId, name });
     const output = JSON.stringify(card, null, 2);
     if (outputFile) {
       await writeFile(outputFile, output, 'utf-8');

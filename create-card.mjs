@@ -40,99 +40,31 @@ const axios = axiosModule.default || axiosModule;
  * @param {string} [options.apiBase] - Base URL.
  * @returns {Promise<object>} - Created card object.
  */
-export async function createCard({ spaceId, boardId, name, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
-  log('createCard called with spaceId=%s, boardId=%s, name=%s, apiBase=%s', spaceId, boardId, name, apiBase);
+export async function createCard({ boardId, name, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
+  log('createCard called with boardId=%s, name=%s, apiBase=%s', boardId, name, apiBase);
   if (!boardId) throw new Error('boardId is required');
   if (!name) throw new Error('name is required');
   if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  // Use provided spaceId if available, otherwise scan all spaces
-  let base = apiBase;
-  let foundSpace;
-  let boardObj;
-  if (spaceId) {
-    log('Using provided spaceId %s to find board', spaceId);
-    // Attempt to fetch boards for this space with fallback
-    let boardsData;
-    try {
-      const boardsResp = await axios.get(`${base}/spaces/${spaceId}/boards`, { headers });
-      boardsData = boardsResp.data;
-    } catch (err) {
-      log('GET boards for provided space %s failed: %O', spaceId, err.response?.data || err.message);
-      if (base.endsWith('/v1')) {
-        const fallbackBase = base.replace(/\/v1$/, '/latest');
-        log('Retrying GET boards from %s', fallbackBase);
-        const boardsResp2 = await axios.get(`${fallbackBase}/spaces/${spaceId}/boards`, { headers });
-        boardsData = boardsResp2.data;
-        base = fallbackBase;
-      } else {
-        throw err;
-      }
+  const url = `${apiBase}/cards`;
+  // Try v1 cards endpoint, else fallback to latest
+  try {
+    log('Posting to %s with payload %O', url, { title: name, board_id: boardId });
+    const response = await axios.post(url, { title: name, board_id: boardId }, { headers });
+    log('Received response: %O', response.data);
+    return { ...response.data, name: response.data.title };
+  } catch (err) {
+    log('POST to %s failed: %O', url, err.response?.data || err.message);
+    if (apiBase.endsWith('/v1')) {
+      const fallbackBase = apiBase.replace(/\/v1$/, '/latest');
+      const fallbackUrl = `${fallbackBase}/cards`;
+      log('Retrying POST to %s', fallbackUrl);
+      const response2 = await axios.post(fallbackUrl, { title: name, board_id: boardId }, { headers });
+      log('Received response: %O', response2.data);
+      return { ...response2.data, name: response2.data.title };
     }
-    boardObj = boardsData.find(b => String(b.id) === String(boardId));
-    if (!boardObj) throw new Error(`Board ${boardId} not found in space ${spaceId}`);
-    foundSpace = spaceId;
-  } else {
-    log('Scanning spaces to locate board %s', boardId);
-    // Fallback scanning for space containing the board
-    let spacesData;
-    try {
-      const spacesResp = await axios.get(`${base}/spaces`, { headers });
-      spacesData = spacesResp.data;
-    } catch (err) {
-      if (base.endsWith('/v1')) {
-        const fallbackBase = base.replace(/\/v1$/, '/latest');
-        log('Retrying GET spaces from %s', fallbackBase);
-        const spacesResp2 = await axios.get(`${fallbackBase}/spaces`, { headers });
-        spacesData = spacesResp2.data;
-        base = fallbackBase;
-      } else {
-        throw err;
-      }
-    }
-    for (const sp of spacesData) {
-      let boardsData;
-      try {
-        const boardsResp = await axios.get(`${base}/spaces/${sp.id}/boards`, { headers });
-        boardsData = boardsResp.data;
-      } catch (err) {
-        if (base.endsWith('/v1')) {
-          const fallbackBase = base.replace(/\/v1$/, '/latest');
-          log('Retrying GET boards from %s', fallbackBase);
-          const boardsResp2 = await axios.get(`${fallbackBase}/spaces/${sp.id}/boards`, { headers });
-          boardsData = boardsResp2.data;
-          base = fallbackBase;
-        } else {
-          throw err;
-        }
-      }
-      boardObj = boardsData.find(b => String(b.id) === String(boardId));
-      if (boardObj) {
-        foundSpace = sp.id;
-        break;
-      }
-    }
-    if (!foundSpace || !boardObj) {
-      throw new Error('Board not found in any space');
-    }
+    throw err;
   }
-  // Extract column and lane for the new card
-  const columnId = boardObj.columns?.[0]?.id;
-  const laneId = boardObj.lanes?.[0]?.id;
-  if (!columnId || !laneId) {
-    throw new Error('Board metadata missing columns or lanes');
-  }
-  // Create the card under the found space and board
-  const url = `${base}/spaces/${foundSpace}/boards/${boardId}/cards`;
-  log('Sending POST request to %s with payload %O', url, { title: name, column_id: columnId, lane_id: laneId });
-  const response = await axios.post(
-    url,
-    { title: name, column_id: columnId, lane_id: laneId },
-    { headers }
-  );
-  log('Received response: %O', response.data);
-  // Map API title to name for consistency
-  return { ...response.data, name: response.data.title };
 }
 
 // If run as CLI

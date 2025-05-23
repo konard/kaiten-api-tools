@@ -35,16 +35,29 @@ const axios = axiosModule.default || axiosModule;
  * @param {string} [options.apiBase] - Base URL.
  * @returns {Promise<object>} - Created card object.
  */
-export async function createCard({ boardId, name, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
+export async function createCard({ spaceId, boardId, name, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
+  if (!spaceId) throw new Error('spaceId is required');
   if (!boardId) throw new Error('boardId is required');
   if (!name) throw new Error('name is required');
   if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  // Create a card with minimal payload
-  const url = `${apiBase}/cards`;
+  // Retrieve board metadata (columns, lanes)
+  const boardsResp = await axios.get(
+    `${apiBase}/spaces/${spaceId}/boards`,
+    { headers }
+  );
+  const boardObj = boardsResp.data.find(b => String(b.id) === String(boardId));
+  if (!boardObj) throw new Error('Board not found in space');
+  const columnId = boardObj.columns?.[0]?.id;
+  const laneId = boardObj.lanes?.[0]?.id;
+  if (!columnId || !laneId) {
+    throw new Error('Board metadata missing columns or lanes');
+  }
+  // Create the card under the specified space and board
+  const url = `${apiBase}/spaces/${spaceId}/boards/${boardId}/cards`;
   const response = await axios.post(
     url,
-    { title: name, board_id: boardId },
+    { title: name, column_id: columnId, lane_id: laneId },
     { headers }
   );
   // Map the API's title field to name for test consistency

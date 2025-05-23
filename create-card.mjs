@@ -53,9 +53,16 @@ export async function createCard({ boardId, name, token = process.env.KAITEN_API
   }
   const url = `${base}/cards`;
   log('Posting to %s with payload %O', url, { title: name, board_id: boardId });
-  const response = await axios.post(url, { title: name, board_id: boardId }, { headers });
-  log('Received response: %O', response.data);
-  return { ...response.data, name: response.data.title };
+  try {
+    const response = await axios.post(url, { title: name, board_id: boardId }, { headers });
+    log('Received response: %O', response.data);
+    return { ...response.data, name: response.data.title };
+  } catch (err) {
+    // Log detailed error information
+    log('Error creating card: status=%s, data=%O', err.response?.status, err.response?.data);
+    // Rethrow after logging
+    throw err;
+  }
 }
 
 // If run as CLI
@@ -77,6 +84,8 @@ if (invokedPath === currentFilePath) {
       console.log(output);
     }
   } catch (err) {
+    // Log full error response for visibility
+    if (err.response?.data) console.error(JSON.stringify(err.response.data, null, 2));
     console.error(err);
     process.exit(1);
   }

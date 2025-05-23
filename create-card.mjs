@@ -3,7 +3,7 @@
  * create-card.mjs
  * Creates a Kaiten card under a board and outputs it as JSON.
  * Usage:
- *   node create-card.mjs <spaceId> <boardId> <cardName> [outputFile]
+ *   node create-card.mjs <boardId> <cardName> [outputFile]
  * Environment Variables:
  *   KAITEN_API_TOKEN - Bearer token for authentication.
  *   KAITEN_API_BASE_URL - Base URL for the API.
@@ -52,9 +52,23 @@ export async function createCard({ spaceId, boardId, name, token = process.env.K
   let boardObj;
   if (spaceId) {
     log('Using provided spaceId %s to find board', spaceId);
-    // Attempt to fetch boards for this space
-    const boardsResp = await axios.get(`${base}/spaces/${spaceId}/boards`, { headers });
-    const boardsData = boardsResp.data;
+    // Attempt to fetch boards for this space with fallback
+    let boardsData;
+    try {
+      const boardsResp = await axios.get(`${base}/spaces/${spaceId}/boards`, { headers });
+      boardsData = boardsResp.data;
+    } catch (err) {
+      log('GET boards for provided space %s failed: %O', spaceId, err.response?.data || err.message);
+      if (base.endsWith('/v1')) {
+        const fallbackBase = base.replace(/\/v1$/, '/latest');
+        log('Retrying GET boards from %s', fallbackBase);
+        const boardsResp2 = await axios.get(`${fallbackBase}/spaces/${spaceId}/boards`, { headers });
+        boardsData = boardsResp2.data;
+        base = fallbackBase;
+      } else {
+        throw err;
+      }
+    }
     boardObj = boardsData.find(b => String(b.id) === String(boardId));
     if (!boardObj) throw new Error(`Board ${boardId} not found in space ${spaceId}`);
     foundSpace = spaceId;
@@ -125,14 +139,14 @@ export async function createCard({ spaceId, boardId, name, token = process.env.K
 const currentFilePath = fileURLToPath(import.meta.url);
 const invokedPath = path.resolve(process.cwd(), process.argv[1] || '');
 if (invokedPath === currentFilePath) {
-  const [, , spaceId, boardId, name, outputFile] = process.argv;
-  log('CLI invoked with spaceId=%s, boardId=%s, name=%s, outputFile=%s', spaceId, boardId, name, outputFile);
-  if (!spaceId || !boardId || !name) {
-    console.error('Usage: create-card.mjs <spaceId> <boardId> <cardName> [outputFile]');
+  const [, , boardId, name, outputFile] = process.argv;
+  log('CLI invoked with boardId=%s, name=%s, outputFile=%s', boardId, name, outputFile);
+  if (!boardId || !name) {
+    console.error('Usage: create-card.mjs <boardId> <cardName> [outputFile]');
     process.exit(1);
   }
   try {
-    const card = await createCard({ spaceId, boardId, name });
+    const card = await createCard({ boardId, name });
     const output = JSON.stringify(card, null, 2);
     if (outputFile) {
       await writeFile(outputFile, output, 'utf-8');

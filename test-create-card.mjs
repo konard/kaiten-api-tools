@@ -68,7 +68,7 @@ test('function export: createSpace and createBoard work correctly', async () => 
 
 // Test card creation (function)
 test('function export: createCard returns a card with id and correct name', async () => {
-  card = await createCard({ spaceId: space.id, boardId: board.id, name: cardName, token, apiBase });
+  card = await createCard({ boardId: board.id, name: cardName, token, apiBase });
   is(typeof card.id, 'number');
   is(card.name, cardName);
 });
@@ -76,7 +76,7 @@ test('function export: createCard returns a card with id and correct name', asyn
 // Test CLI for card
 test('CLI: create-card CLI outputs matching JSON', async () => {
   const { stdout } = await execAsync(
-    `node ${path.resolve(__dirname, 'create-card.mjs')} ${space.id} ${board.id} ${cardName}`
+    `node ${path.resolve(__dirname, 'create-card.mjs')} ${board.id} ${cardName}`
   );
   cliCard = JSON.parse(stdout);
   is(typeof cliCard.id, 'number');

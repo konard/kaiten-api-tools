@@ -42,7 +42,8 @@ const __dirname = path.dirname(__filename);
 // Validate environment variables
 const token = process.env.KAITEN_API_TOKEN;
 if (!token) throw new Error('Set environment variable KAITEN_API_TOKEN');
-const apiBase = process.env.KAITEN_API_BASE_URL || 'https://developers.kaiten.ru/v1';
+const apiBase = process.env.KAITEN_API_BASE_URL;
+if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
 
 // Variables to hold test resources
 let space, board, card, downloadScript;

@@ -39,10 +39,14 @@ export async function createBoard({ spaceId, name, token = process.env.KAITEN_AP
   if (!spaceId) throw new Error('spaceId is required');
   if (!name) throw new Error('name is required');
   if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
-  const url = `${apiBase}/boards`;
+  const url = `${apiBase}/spaces/${spaceId}/boards`;
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await axios.post(url, { name, space_id: spaceId }, { headers });
-  return response.data;
+  const response = await axios.post(
+    url,
+    { title: name, columns: [], lanes: [] },
+    { headers }
+  );
+  return { ...response.data, name: response.data.title };
 }
 
 // If run as CLI

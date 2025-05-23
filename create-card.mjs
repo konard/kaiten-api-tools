@@ -46,7 +46,12 @@ export async function createCard({ boardId, name, token = process.env.KAITEN_API
   if (!name) throw new Error('name is required');
   if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const url = `${apiBase}/cards`;
+  // Always use /latest for cards endpoint if base ends with /v1
+  let base = apiBase;
+  if (base.endsWith('/v1')) {
+    base = base.replace(/\/v1$/, '/latest');
+  }
+  const url = `${base}/cards`;
   log('Posting to %s with payload %O', url, { title: name, board_id: boardId });
   const response = await axios.post(url, { title: name, board_id: boardId }, { headers });
   log('Received response: %O', response.data);

@@ -47,24 +47,10 @@ export async function createCard({ boardId, name, token = process.env.KAITEN_API
   if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
   const url = `${apiBase}/cards`;
-  // Try v1 cards endpoint, else fallback to latest
-  try {
-    log('Posting to %s with payload %O', url, { title: name, board_id: boardId });
-    const response = await axios.post(url, { title: name, board_id: boardId }, { headers });
-    log('Received response: %O', response.data);
-    return { ...response.data, name: response.data.title };
-  } catch (err) {
-    log('POST to %s failed: %O', url, err.response?.data || err.message);
-    if (apiBase.endsWith('/v1')) {
-      const fallbackBase = apiBase.replace(/\/v1$/, '/latest');
-      const fallbackUrl = `${fallbackBase}/cards`;
-      log('Retrying POST to %s', fallbackUrl);
-      const response2 = await axios.post(fallbackUrl, { title: name, board_id: boardId }, { headers });
-      log('Received response: %O', response2.data);
-      return { ...response2.data, name: response2.data.title };
-    }
-    throw err;
-  }
+  log('Posting to %s with payload %O', url, { title: name, board_id: boardId });
+  const response = await axios.post(url, { title: name, board_id: boardId }, { headers });
+  log('Received response: %O', response.data);
+  return { ...response.data, name: response.data.title };
 }
 
 // If run as CLI

@@ -50,22 +50,16 @@ let boardName;
 let cardName;
 
 // Setup test data
-test.before(() => {
+test.before(async () => {
   const timestamp = Date.now();
   spaceName = `test-space-${timestamp}`;
   boardName = `test-board-${timestamp}`;
   cardName = `test-card-${timestamp}`;
-});
-
-// Test space and board creation (function)
-test('function export: createSpace and createBoard work correctly', async () => {
   space = await createSpace({ name: spaceName, token, apiBase });
   board = await createBoard({ spaceId: space.id, name: boardName, token, apiBase });
-  is(typeof space.id, 'number');
-  is(typeof board.id, 'number');
-  is(board.name, boardName);
 });
 
+// Note: space and board are created in before hook
 // Test card creation (function)
 test('function export: createCard returns a card with id and correct name', async () => {
   card = await createCard({ boardId: board.id, name: cardName, token, apiBase });

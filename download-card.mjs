@@ -16,6 +16,11 @@ const { use } = eval(
   await fetch('https://unpkg.com/use-m/use.js').then(u => u.text())
 );
 
+// Import debug for tracing via use-m
+const debugModule = await use('debug@4.3.4');
+const debug = debugModule.default || debugModule;
+const log = debug('kaiten:download-card');
+
 // Load environment variables from .env
 const { config } = await use('dotenv@16.1.4');
 config({ path: path.resolve(process.cwd(), '.env') });
@@ -34,11 +39,14 @@ const TurndownService = await use('turndown@7.1.1');
  * @returns {Promise<string>} - Markdown representation.
  */
 export async function downloadCardToMarkdown({ cardId, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
+  log('downloadCardToMarkdown called with cardId=%s, apiBase=%s', cardId, apiBase);
   if (!cardId) throw new Error('cardId is required');
   if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
   const url = `${apiBase}/cards/${cardId}`;
+  log('Fetching card at %s', url);
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
   const response = await axios.get(url, { headers });
+  log('Received card data: %O', response.data);
   const card = response.data;
   const turndownService = new TurndownService();
 
@@ -48,6 +56,7 @@ export async function downloadCardToMarkdown({ cardId, token = process.env.KAITE
   if (card.estimate != null) md += `- **Estimate**: ${card.estimate}\n`;
   md += `\n## Description\n\n`;
   md += card.description ? turndownService.turndown(card.description) : '';
+  log('Converted description to Markdown');
   md += '\n';
   return md;
 }
@@ -57,6 +66,7 @@ const currentFilePath = fileURLToPath(import.meta.url);
 const invokedPath = path.resolve(process.cwd(), process.argv[1] || '');
 if (invokedPath === currentFilePath) {
   const [, , cardId, outputFile] = process.argv;
+  log('CLI invoked with cardId=%s, outputFile=%s', cardId, outputFile);
   if (!cardId) {
     console.error('Usage: download-card.mjs <cardId> [outputFile]');
     process.exit(1);

@@ -51,14 +51,23 @@ export async function createSpace({ name, token = process.env.KAITEN_API_TOKEN, 
   const url = `${apiBase}/spaces`;
   log('Sending POST request to %s with payload %O', url, { title: name });
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  let response;
   try {
-    const response = await axios.post(url, { title: name }, { headers });
-    log('Received response: %O', response.data);
-    return response.data;
+    response = await axios.post(url, { title: name }, { headers });
   } catch (err) {
-    log('API error response: %O', err.response?.data || err.message);
-    throw err;
+    log('Initial POST to %s failed: %O', url, err.response?.data || err.message);
+    // Fallback to /latest if apiBase ends with '/v1'
+    if (apiBase.endsWith('/v1')) {
+      const fallbackBase = apiBase.replace(/\/v1$/, '/latest');
+      const fallbackUrl = `${fallbackBase}/spaces`;
+      log('Retrying POST to %s', fallbackUrl);
+      response = await axios.post(fallbackUrl, { title: name }, { headers });
+    } else {
+      throw err;
+    }
   }
+  log('Received response: %O', response.data);
+  return response.data;
 }
 
 // If run as CLI

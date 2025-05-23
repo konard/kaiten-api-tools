@@ -35,8 +35,9 @@ const TurndownService = await use('turndown@7.1.1');
  * @param {string} [options.apiBase='https://developers.kaiten.ru/v1'] - Base URL.
  * @returns {Promise<string>} - Markdown representation.
  */
-export async function downloadCardToMarkdown({ cardId, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL || 'https://developers.kaiten.ru/v1' }) {
+export async function downloadCardToMarkdown({ cardId, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
   if (!cardId) throw new Error('cardId is required');
+  if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
   const url = `${apiBase}/cards/${cardId}`;
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
   const response = await axios.get(url, { headers });

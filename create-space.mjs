@@ -18,6 +18,11 @@ const script = await resp.text();
 const { makeUse } = eval(script);
 const use = await makeUse({ meta: import.meta, scriptPath: import.meta.url });
 
+// Import debug for tracing via use-m
+const debugModule = await use('debug@4.3.4');
+const debug = debugModule.default || debugModule;
+const log = debug('kaiten:create-space');
+
 // Load environment variables from .env
 const { config } = await use('dotenv@16.1.4');
 config({ path: path.resolve(process.cwd(), '.env') });
@@ -34,11 +39,21 @@ const axios = axiosModule.default || axiosModule;
  * @param {string} [options.apiBase] - Base URL.
  * @returns {Promise<object>} - Created space object.
  */
-export async function createSpace({ name, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL || 'https://developers.kaiten.ru/v1' }) {
-  if (!name) throw new Error('name is required');
+export async function createSpace({ name, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
+  log('createSpace called with name=%s, apiBase=%s', name, apiBase);
+  if (!name) {
+    log('Error: name is required');
+    throw new Error('name is required');
+  }
+  if (!apiBase) {
+    log('Error: KAITEN_API_BASE_URL is required');
+    throw new Error('Set environment variable KAITEN_API_BASE_URL');
+  }
   const url = `${apiBase}/spaces`;
+  log('Sending POST request to %s with payload %O', url, { name });
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
   const response = await axios.post(url, { name }, { headers });
+  log('Received response: %O', response.data);
   return response.data;
 }
 
@@ -52,6 +67,7 @@ if (invokedPath === __filename) {
     process.exit(1);
   }
   try {
+    log('CLI invoked with name=%s, outputFile=%s', name, outputFile);
     const space = await createSpace({ name });
     const output = JSON.stringify(space, null, 2);
     if (outputFile) {

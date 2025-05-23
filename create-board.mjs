@@ -35,9 +35,10 @@ const axios = axiosModule.default || axiosModule;
  * @param {string} [options.apiBase] - Base URL.
  * @returns {Promise<object>} - Created board object.
  */
-export async function createBoard({ spaceId, name, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL || 'https://developers.kaiten.ru/v1' }) {
+export async function createBoard({ spaceId, name, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
   if (!spaceId) throw new Error('spaceId is required');
   if (!name) throw new Error('name is required');
+  if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
   const url = `${apiBase}/boards`;
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
   const response = await axios.post(url, { name, space_id: spaceId }, { headers });

@@ -27,7 +27,7 @@ const { config } = await use('dotenv@16.1.4');
 config({ path: path.resolve(process.cwd(), '.env') });
 
 // Import axios
-const axiosModule = await use('axios@1.5.0');
+const axiosModule = await use('axios@1.9.0');
 const axios = axiosModule.default || axiosModule;
 
 /**
@@ -60,6 +60,9 @@ export async function createCard({ boardId, name, token = process.env.KAITEN_API
   } catch (err) {
     // Log detailed error information
     log('Error creating card: status=%s, data=%O', err.response?.status, err.response?.data);
+    if (typeof err.toJSON === 'function') {
+      log('AxiosError toJSON:', JSON.stringify(err.toJSON(), null, 2));
+    }
     // Rethrow after logging
     throw err;
   }
@@ -85,8 +88,12 @@ if (invokedPath === currentFilePath) {
     }
   } catch (err) {
     // Log full error response for visibility
-    if (err.response?.data) console.error(JSON.stringify(err.response.data, null, 2));
+    if (typeof err.toJSON === 'function') {
+      console.error(JSON.stringify(err.toJSON(), null, 2));
+    } else if (err.response?.data) {
+      console.error(JSON.stringify(err.response.data, null, 2));
+    }
     console.error(err);
     process.exit(1);
   }
-} 
+}

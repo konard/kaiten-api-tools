@@ -30,7 +30,7 @@ const { test } = await use('uvu@0.5.6');
 const { equal } = await use('uvu@0.5.6/assert');
 
 // Import axios for cleanup
-const axiosModule = await use('axios@1.5.0');
+const axiosModule = await use('axios@1.9.0');
 const axios = axiosModule.default || axiosModule;
 
 const execAsync = promisify(exec);
@@ -77,16 +77,40 @@ test.after(async () => {
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
   // Delete card, board, and space in reverse creation order if they exist
   if (card && card.id) {
-    await axios.delete(`${apiBase}/cards/${card.id}`, { headers });
+    try {
+      await axios.delete(`${apiBase}/cards/${card.id}`, { headers });
+    } catch (err) {
+      if (typeof err.toJSON === 'function') {
+        console.error('AxiosError:', JSON.stringify(err.toJSON(), null, 2));
+      } else {
+        console.error('Error:', err.message);
+      }
+    }
   }
   if (board && board.id) {
-    await axios.delete(
-      `${apiBase}/spaces/${space.id}/boards/${board.id}`,
-      { headers, data: { force: true } }
-    );
+    try {
+      await axios.delete(
+        `${apiBase}/spaces/${space.id}/boards/${board.id}`,
+        { headers, data: { force: true } }
+      );
+    } catch (err) {
+      if (typeof err.toJSON === 'function') {
+        console.error('AxiosError:', JSON.stringify(err.toJSON(), null, 2));
+      } else {
+        console.error('Error:', err.message);
+      }
+    }
   }
   if (space && space.id) {
-    await axios.delete(`${apiBase}/spaces/${space.id}`, { headers });
+    try {
+      await axios.delete(`${apiBase}/spaces/${space.id}`, { headers });
+    } catch (err) {
+      if (typeof err.toJSON === 'function') {
+        console.error('AxiosError:', JSON.stringify(err.toJSON(), null, 2));
+      } else {
+        console.error('Error:', err.message);
+      }
+    }
   }
 });
 

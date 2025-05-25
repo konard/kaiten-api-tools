@@ -32,7 +32,7 @@ const { test } = await use('uvu@0.5.6');
 const { is } = await use('uvu@0.5.6/assert');
 
 // Import axios for cleanup
-const axiosModule = await use('axios@1.5.0');
+const axiosModule = await use('axios@1.9.0');
 const axios = axiosModule.default || axiosModule;
 
 const execAsync = promisify(exec);
@@ -108,4 +108,4 @@ test.after(async () => {
   }
 });
 
-test.run(); 
+test.run();

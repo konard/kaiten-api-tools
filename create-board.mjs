@@ -27,7 +27,7 @@ const { config } = await use('dotenv@16.1.4');
 config({ path: path.resolve(process.cwd(), '.env') });
 
 // Import axios
-const axiosModule = await use('axios@1.5.0');
+const axiosModule = await use('axios@1.9.0');
 const axios = axiosModule.default || axiosModule;
 
 /**
@@ -99,14 +99,27 @@ export async function createBoard({ spaceId, name, token = process.env.KAITEN_AP
     }
     if (err.response) {
       log('TRACE: Error response:', JSON.stringify(serializeAxiosResponse(err.response), null, 2));
-      console.error('Error:', err.message);
+      if (typeof err.toJSON === 'function') {
+        log('TRACE: AxiosError toJSON:', JSON.stringify(err.toJSON(), null, 2));
+        console.error('AxiosError:', JSON.stringify(err.toJSON(), null, 2));
+      } else {
+        console.error('Error:', err.message);
+      }
       console.error('Request:', JSON.stringify(serializeAxiosRequest(err.config), null, 2));
       console.error('Response:', JSON.stringify(serializeAxiosResponse(err.response), null, 2));
     } else if (err.config) {
-      console.error('Error:', err.message);
+      if (typeof err.toJSON === 'function') {
+        console.error('AxiosError:', JSON.stringify(err.toJSON(), null, 2));
+      } else {
+        console.error('Error:', err.message);
+      }
       console.error('Request:', JSON.stringify(serializeAxiosRequest(err.config), null, 2));
     } else {
-      console.error('Error:', err.message);
+      if (typeof err.toJSON === 'function') {
+        console.error('AxiosError:', JSON.stringify(err.toJSON(), null, 2));
+      } else {
+        console.error('Error:', err.message);
+      }
     }
     throw err;
   }

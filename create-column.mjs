@@ -27,7 +27,7 @@ const { config } = await use('dotenv@16.1.4');
 config({ path: path.resolve(process.cwd(), '.env') });
 
 // Import axios
-const axiosModule = await use('axios@1.5.0');
+const axiosModule = await use('axios@1.9.0');
 const axios = axiosModule.default || axiosModule;
 
 /**
@@ -47,9 +47,21 @@ export async function createColumn({ boardId, title, token = process.env.KAITEN_
   const url = `${apiBase.replace(/\/v1$/, '/latest')}/boards/${boardId}/columns`;
   log('Sending POST request to %s with payload %O', url, { title });
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await axios.post(url, { title }, { headers });
-  log('Received response: %O', response.data);
-  return response.data;
+  try {
+    const response = await axios.post(url, { title }, { headers });
+    log('Received response: %O', response.data);
+    return response.data;
+  } catch (err) {
+    if (typeof err.toJSON === 'function') {
+      log('AxiosError toJSON:', JSON.stringify(err.toJSON(), null, 2));
+      console.error('AxiosError:', JSON.stringify(err.toJSON(), null, 2));
+    } else if (err.response?.data) {
+      console.error(JSON.stringify(err.response.data, null, 2));
+    } else {
+      console.error(err);
+    }
+    throw err;
+  }
 }
 
 // If run as CLI
@@ -71,8 +83,13 @@ if (invokedPath === currentFilePath) {
       console.log(output);
     }
   } catch (err) {
-    if (err.response?.data) console.error(JSON.stringify(err.response.data, null, 2));
-    console.error(err);
+    if (typeof err.toJSON === 'function') {
+      console.error('AxiosError:', JSON.stringify(err.toJSON(), null, 2));
+    } else if (err.response?.data) {
+      console.error(JSON.stringify(err.response.data, null, 2));
+    } else {
+      console.error(err);
+    }
     process.exit(1);
   }
-} 
+}

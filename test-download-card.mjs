@@ -47,12 +47,18 @@ if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
 let space, board, card, downloadScript;
 
 // Setup resources before tests
+let spaceName, boardName, cardName;
 test.before(async () => {
-  // Create Kaiten space, board, and card for testing
-  space = await createSpace({ name: `test-space-${Date.now()}`, token, apiBase });
-  board = await createBoard({ spaceId: space.id, name: `test-board-${Date.now()}`, token, apiBase });
-  card = await createCard({ boardId: board.id, name: `test-card-${Date.now()}`, token, apiBase });
+  // Use timestamp for reproducibility
+  const timestamp = Date.now();
+  spaceName = `test-space-${timestamp}`;
+  boardName = `test-board-${timestamp}`;
+  cardName = `test-card-${timestamp}`;
+  space = await createSpace({ name: spaceName, token, apiBase });
+  board = await createBoard({ spaceId: space.id, name: boardName, token, apiBase });
+  card = await createCard({ boardId: board.id, name: cardName, token, apiBase });
   downloadScript = path.join(__dirname, 'download-card.mjs');
+  console.log('Setup complete: space.id=', space.id, 'board.id=', board.id, 'card.id=', card.id);
 });
 
 test('function export: should fetch and convert a card to markdown with a heading', async () => {
@@ -74,11 +80,14 @@ test.after(async () => {
     await axios.delete(`${apiBase}/cards/${card.id}`, { headers });
   }
   if (board && board.id) {
-    await axios.delete(`${apiBase}/boards/${board.id}`, { headers });
+    await axios.delete(
+      `${apiBase}/spaces/${space.id}/boards/${board.id}`,
+      { headers, data: { force: true } }
+    );
   }
   if (space && space.id) {
     await axios.delete(`${apiBase}/spaces/${space.id}`, { headers });
   }
 });
 
-test.run(); 
+test.run();

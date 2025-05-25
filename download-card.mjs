@@ -26,7 +26,7 @@ const { config } = await use('dotenv@16.1.4');
 config({ path: path.resolve(process.cwd(), '.env') });
 
 // Import axios and turndown correctly
-const axiosModule = await use('axios@1.5.0');
+const axiosModule = await use('axios@1.9.0');
 const axios = axiosModule.default || axiosModule;
 const TurndownService = await use('turndown@7.1.1');
 
@@ -45,20 +45,32 @@ export async function downloadCardToMarkdown({ cardId, token = process.env.KAITE
   const url = `${apiBase}/cards/${cardId}`;
   log('Fetching card at %s', url);
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await axios.get(url, { headers });
-  log('Received card data: %O', response.data);
-  const card = response.data;
-  const turndownService = new TurndownService();
+  try {
+    const response = await axios.get(url, { headers });
+    log('Received card data: %O', response.data);
+    const card = response.data;
+    const turndownService = new TurndownService();
 
-  let md = `# ${card.name}\n\n`;
-  md += `- **ID**: ${card.id}\n`;
-  if (card.status?.name) md += `- **Status**: ${card.status.name}\n`;
-  if (card.estimate != null) md += `- **Estimate**: ${card.estimate}\n`;
-  md += `\n## Description\n\n`;
-  md += card.description ? turndownService.turndown(card.description) : '';
-  log('Converted description to Markdown');
-  md += '\n';
-  return md;
+    let md = `# ${card.name}\n\n`;
+    md += `- **ID**: ${card.id}\n`;
+    if (card.status?.name) md += `- **Status**: ${card.status.name}\n`;
+    if (card.estimate != null) md += `- **Estimate**: ${card.estimate}\n`;
+    md += `\n## Description\n\n`;
+    md += card.description ? turndownService.turndown(card.description) : '';
+    log('Converted description to Markdown');
+    md += '\n';
+    return md;
+  } catch (err) {
+    if (typeof err.toJSON === 'function') {
+      log('AxiosError toJSON:', JSON.stringify(err.toJSON(), null, 2));
+      console.error('AxiosError:', JSON.stringify(err.toJSON(), null, 2));
+    } else if (err.response?.data) {
+      console.error(JSON.stringify(err.response.data, null, 2));
+    } else {
+      console.error(err);
+    }
+    throw err;
+  }
 }
 
 // If run as CLI
@@ -81,7 +93,13 @@ if (invokedPath === currentFilePath) {
       console.log(md);
     }
   } catch (err) {
-    console.error(err);
+    if (typeof err.toJSON === 'function') {
+      console.error('AxiosError:', JSON.stringify(err.toJSON(), null, 2));
+    } else if (err.response?.data) {
+      console.error(JSON.stringify(err.response.data, null, 2));
+    } else {
+      console.error(err);
+    }
     process.exit(1);
   }
-} 
+}

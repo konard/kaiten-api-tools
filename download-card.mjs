@@ -28,7 +28,8 @@ config({ path: path.resolve(process.cwd(), '.env') });
 // Import axios and turndown correctly
 const axiosModule = await use('axios@1.9.0');
 const axios = axiosModule.default || axiosModule;
-const TurndownService = await use('turndown@7.1.1');
+const turndownModule = await use('turndown@7.2.0');
+const TurndownService = turndownModule.default || turndownModule;
 
 /**
  * Download Kaiten card data and convert to Markdown.
@@ -51,7 +52,7 @@ export async function downloadCardToMarkdown({ cardId, token = process.env.KAITE
     const card = response.data;
     const turndownService = new TurndownService();
 
-    let md = `# ${card.name}\n\n`;
+    let md = `# ${card.title}\n\n`;
     md += `- **ID**: ${card.id}\n`;
     if (card.status?.name) md += `- **Status**: ${card.status.name}\n`;
     if (card.estimate != null) md += `- **Estimate**: ${card.estimate}\n`;

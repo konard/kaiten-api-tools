@@ -12,6 +12,7 @@
  *   KAITEN_API_TOKEN - Bearer token for authentication.
  */
 import { writeFile, mkdir } from 'fs/promises';
+import { createWriteStream } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -38,6 +39,29 @@ const TurndownService = turndownModule.default || turndownModule;
 // Import yargs for CLI argument parsing
 const yargsModule = await use('yargs@17.7.2');
 const yargs = yargsModule.default || yargsModule;
+
+/**
+ * Download a file from URL to a local path.
+ * @param {string} url - The file URL.
+ * @param {string} filePath - The local file path.
+ * @param {object} headers - Request headers.
+ */
+async function downloadFile(url, filePath, headers = {}) {
+  const response = await axios({
+    method: 'GET',
+    url: url,
+    responseType: 'stream',
+    headers: headers
+  });
+  
+  const writer = createWriteStream(filePath);
+  response.data.pipe(writer);
+  
+  return new Promise((resolve, reject) => {
+    writer.on('finish', resolve);
+    writer.on('error', reject);
+  });
+}
 
 /**
  * Parse card input (ID or URL) and extract card ID and base API URL.
@@ -95,6 +119,28 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
     md += card.description ? turndownService.turndown(card.description) : '';
     log('Converted description to Markdown');
     md += '\n';
+    
+    // Add files section if any files exist
+    if (card.files && card.files.length > 0) {
+      md += '## Files\n\n';
+      for (const file of card.files) {
+        const fileName = file.name || `file_${file.id}`;
+        const isImage = /\.(png|jpg|jpeg|gif|bmp|svg)$/i.test(fileName);
+        
+        md += `### ${fileName}\n\n`;
+        md += `- **URL**: ${file.url}\n`;
+        md += `- **Size**: ${file.size} bytes\n`;
+        if (file.created) md += `- **Created**: ${file.created}\n`;
+        
+        if (isImage) {
+          md += `\n![${fileName}](files/${fileName})\n`;
+        } else {
+          md += `\n[Download ${fileName}](files/${fileName})\n`;
+        }
+        md += '\n';
+      }
+    }
+    
     return { card, markdown: md };
   } catch (err) {
     if (typeof err.toJSON === 'function') {
@@ -172,6 +218,10 @@ if (invokedPath === currentFilePath) {
     
     // Create directory structure
     await mkdir(outputDir, { recursive: true });
+    const filesDir = path.join(outputDir, 'files');
+    if (card.files && card.files.length > 0) {
+      await mkdir(filesDir, { recursive: true });
+    }
     log('Created directory: %s', outputDir);
     
     // Save both files
@@ -184,6 +234,24 @@ if (invokedPath === currentFilePath) {
     console.log(`✓ Card downloaded successfully:`);
     console.log(`  - Markdown: ${mdPath}`);
     console.log(`  - JSON: ${jsonPath}`);
+    
+    // Download all files
+    if (card.files && card.files.length > 0) {
+      console.log(`\n✓ Downloading ${card.files.length} file(s):`);
+      const headers = argv.token ? { Authorization: `Bearer ${argv.token}` } : {};
+      
+      for (const file of card.files) {
+        const fileName = file.name || `file_${file.id}`;
+        const filePath = path.join(filesDir, fileName);
+        
+        try {
+          await downloadFile(file.url, filePath, headers);
+          console.log(`  - Downloaded: "./data/${subdomain}/${cardId}/files/${fileName}"`);
+        } catch (err) {
+          console.error(`  - Failed to download ${fileName}: ${err.message}`);
+        }
+      }
+    }
   } catch (err) {
     if (typeof err.toJSON === 'function') {
       console.error('AxiosError:', JSON.stringify(err.toJSON(), null, 2));

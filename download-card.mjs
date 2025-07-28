@@ -113,6 +113,34 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
 
     let md = `# ${card.title}\n\n`;
     md += `- **ID**: ${card.id}\n`;
+    if (card.owner) {
+      let ownerInfo = '';
+      if (card.owner.username) ownerInfo += `@${card.owner.username}`;
+      if (card.owner.full_name) {
+        if (ownerInfo) ownerInfo += ' ';
+        ownerInfo += `(${card.owner.full_name})`;
+      }
+      if (card.owner.email) {
+        if (ownerInfo) ownerInfo += ' ';
+        ownerInfo += `<${card.owner.email}>`;
+      }
+      md += `- **Owner**: ${ownerInfo}\n`;
+    }
+    
+    // Build location string
+    if (card.board && card.board.spaces && card.column && card.lane) {
+      const spaces = card.board.spaces.filter(s => s.primary_path).map(s => s.title);
+      const boardTitle = card.board.title;
+      const columnTitle = card.column.title;
+      const laneTitle = card.lane.title;
+      
+      let location = spaces.join(' / ');
+      if (location) location += ' / ';
+      location += `${boardTitle} / ${columnTitle} (${laneTitle})`;
+      
+      md += `- **Location**: ${location}\n`;
+    }
+    
     if (card.status?.name) md += `- **Status**: ${card.status.name}\n`;
     if (card.estimate != null) md += `- **Estimate**: ${card.estimate}\n`;
     md += `\n## Description\n\n`;

@@ -241,14 +241,14 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
         const isImage = /\.(png|jpg|jpeg|gif|bmp|svg)$/i.test(fileName);
         
         md += `### ${fileName}\n\n`;
-        md += `- **URL**: ${file.url}\n`;
+        md += `- **Source URL**: ${file.url}\n`;
         md += `- **Size**: ${file.size} bytes\n`;
         if (file.created) md += `- **Created**: ${file.created}\n`;
         
         if (isImage) {
-          md += `\n![${fileName}](files/${fileName})\n`;
+          md += `\n<img src="./files/${fileName}" alt="${fileName}" />\n`;
         } else {
-          md += `\n[Download ${fileName}](files/${fileName})\n`;
+          md += `\n[${fileName}](./files/${fileName})\n`;
         }
         md += '\n';
       }

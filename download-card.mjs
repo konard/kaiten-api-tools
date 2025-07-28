@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 /**
  * download-card.mjs
- * Fetches a Kaiten card by ID and outputs it as Markdown.
+ * Fetches a Kaiten card by ID and outputs it as Markdown and JSON.
  * Usage:
- *   node download-card.mjs <cardId|url> [outputFile]
+ *   node download-card.mjs <cardId|url> [options]
  *   Examples:
- *     node download-card.mjs 123456 [outputFile]
- *     node download-card.mjs https://company.kaiten.ru/123456 [outputFile]
+ *     node download-card.mjs 123456
+ *     node download-card.mjs https://company.kaiten.ru/123456
+ *     node download-card.mjs 123456 --output-dir ./custom/path
  * Environment Variables:
  *   KAITEN_API_TOKEN - Bearer token for authentication.
  */
-import { writeFile } from 'fs/promises';
+import { writeFile, mkdir } from 'fs/promises';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -33,6 +34,10 @@ const axiosModule = await use('axios@1.9.0');
 const axios = axiosModule.default || axiosModule;
 const turndownModule = await use('turndown@7.2.0');
 const TurndownService = turndownModule.default || turndownModule;
+
+// Import yargs for CLI argument parsing
+const yargsModule = await use('yargs@17.7.2');
+const yargs = yargsModule.default || yargsModule;
 
 /**
  * Parse card input (ID or URL) and extract card ID and base API URL.
@@ -67,9 +72,9 @@ function parseCardInput(input) {
  * @param {string} options.cardId - The Kaiten card ID.
  * @param {string} options.token - API token.
  * @param {string} [options.apiBase='https://developers.kaiten.ru/v1'] - Base URL.
- * @returns {Promise<string>} - Markdown representation.
+ * @returns {Promise<{card: object, markdown: string}>} - Card data and markdown representation.
  */
-export async function downloadCardToMarkdown({ cardId, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
+export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
   log('downloadCardToMarkdown called with cardId=%s, apiBase=%s', cardId, apiBase);
   if (!cardId) throw new Error('cardId is required');
   if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
@@ -90,7 +95,7 @@ export async function downloadCardToMarkdown({ cardId, token = process.env.KAITE
     md += card.description ? turndownService.turndown(card.description) : '';
     log('Converted description to Markdown');
     md += '\n';
-    return md;
+    return { card, markdown: md };
   } catch (err) {
     if (typeof err.toJSON === 'function') {
       log('AxiosError toJSON:', JSON.stringify(err.toJSON(), null, 2));
@@ -104,25 +109,81 @@ export async function downloadCardToMarkdown({ cardId, token = process.env.KAITE
   }
 }
 
+/**
+ * Extract subdomain from API base URL.
+ * @param {string} apiBase - The API base URL.
+ * @returns {string} - Subdomain name.
+ */
+function extractSubdomain(apiBase) {
+  try {
+    const url = new URL(apiBase);
+    // Extract subdomain from hostname like 'company.kaiten.ru'
+    const parts = url.hostname.split('.');
+    if (parts.length >= 3 && parts[parts.length - 2] === 'kaiten') {
+      return parts[0];
+    }
+    return url.hostname;
+  } catch (err) {
+    return 'unknown';
+  }
+}
+
 // If run as CLI
 const currentFilePath = fileURLToPath(import.meta.url);
 const invokedPath = path.resolve(process.cwd(), process.argv[1] || '');
 if (invokedPath === currentFilePath) {
-  const [, , cardInput, outputFile] = process.argv;
-  log('CLI invoked with cardInput=%s, outputFile=%s', cardInput, outputFile);
+  const argv = yargs(process.argv.slice(2))
+    .usage('Usage: $0 <cardId|url> [options]')
+    .positional('card', {
+      describe: 'Card ID or full Kaiten URL',
+      type: 'string',
+      demandOption: true
+    })
+    .option('output-dir', {
+      alias: 'o',
+      describe: 'Output directory (default: ./data/<subdomain>/<card-id>/)',
+      type: 'string'
+    })
+    .option('token', {
+      alias: 't',
+      describe: 'API token (defaults to KAITEN_API_TOKEN env var)',
+      type: 'string',
+      default: process.env.KAITEN_API_TOKEN
+    })
+    .help()
+    .alias('help', 'h')
+    .argv;
+
+  const cardInput = argv._[0];
+  log('CLI invoked with cardInput=%s, outputDir=%s', cardInput, argv.outputDir);
+  
   if (!cardInput) {
-    console.error('Usage: download-card.mjs <cardId|url> [outputFile]');
+    console.error('Error: Card ID or URL is required');
     process.exit(1);
   }
-  const token = process.env.KAITEN_API_TOKEN;
+  
   try {
     const { cardId, apiBase } = parseCardInput(cardInput);
-    const md = await downloadCardToMarkdown({ cardId, token, apiBase });
-    if (outputFile) {
-      await writeFile(outputFile, md, 'utf-8');
-    } else {
-      console.log(md);
-    }
+    const { card, markdown } = await downloadCard({ cardId, token: argv.token, apiBase });
+    
+    // Determine output directory
+    const subdomain = extractSubdomain(apiBase);
+    const outputDir = argv.outputDir || path.join('./data', subdomain, cardId);
+    
+    // Create directory structure
+    await mkdir(outputDir, { recursive: true });
+    log('Created directory: %s', outputDir);
+    
+    // Save both files
+    const mdPath = path.join(outputDir, 'card.md');
+    const jsonPath = path.join(outputDir, 'card.json');
+    
+    await writeFile(mdPath, markdown, 'utf-8');
+    await writeFile(jsonPath, JSON.stringify(card, null, 2), 'utf-8');
+    
+    console.log(`✓ Card downloaded successfully:`);
+    console.log(`  - Markdown: ${mdPath}`);
+    console.log(`  - JSON: ${jsonPath}`);
   } catch (err) {
     if (typeof err.toJSON === 'function') {
       console.error('AxiosError:', JSON.stringify(err.toJSON(), null, 2));

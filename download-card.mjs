@@ -349,8 +349,8 @@ if (invokedPath === currentFilePath) {
     await writeFile(jsonPath, JSON.stringify(card, null, 2), 'utf-8');
     
     console.log(`✓ Card downloaded successfully:`);
-    console.log(`  - Markdown: ${mdPath}`);
-    console.log(`  - JSON: ${jsonPath}`);
+    console.log(`  - Markdown: ./${mdPath}`);
+    console.log(`  - JSON: ./${jsonPath}`);
     
     // Save comments as individual JSON files
     if (comments && comments.length > 0) {
@@ -360,7 +360,7 @@ if (invokedPath === currentFilePath) {
         const commentFileName = `comment_${i + 1}_${comment.id || 'unknown'}.json`;
         const commentPath = path.join(commentsDir, commentFileName);
         await writeFile(commentPath, JSON.stringify(comment, null, 2), 'utf-8');
-        console.log(`  - Saved: ${commentPath}`);
+        console.log(`  - Saved: ./${commentPath}`);
       }
     }
     
@@ -375,7 +375,7 @@ if (invokedPath === currentFilePath) {
         
         try {
           await downloadFile(file.url, filePath, headers);
-          console.log(`  - Downloaded: "./data/${subdomain}/${cardId}/files/${fileName}"`);
+          console.log(`  - Downloaded: ./data/${subdomain}/${cardId}/files/"${fileName}"`);
         } catch (err) {
           console.error(`  - Failed to download ${fileName}: ${err.message}`);
         }

@@ -91,12 +91,35 @@ function parseCardInput(input) {
 }
 
 /**
+ * Fetch comments for a Kaiten card.
+ * @param {object} options
+ * @param {string} options.cardId - The Kaiten card ID.
+ * @param {string} options.token - API token.
+ * @param {string} options.apiBase - Base URL.
+ * @returns {Promise<Array>} - Array of comments.
+ */
+async function fetchCardComments({ cardId, token, apiBase }) {
+  log('fetchCardComments called with cardId=%s, apiBase=%s', cardId, apiBase);
+  const url = `${apiBase}/cards/${cardId}/comments`;
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  
+  try {
+    const response = await axios.get(url, { headers });
+    log('Received %d comments', response.data.length);
+    return response.data;
+  } catch (err) {
+    log('Failed to fetch comments: %O', err);
+    return [];
+  }
+}
+
+/**
  * Download Kaiten card data and convert to Markdown.
  * @param {object} options
  * @param {string} options.cardId - The Kaiten card ID.
  * @param {string} options.token - API token.
  * @param {string} [options.apiBase='https://developers.kaiten.ru/v1'] - Base URL.
- * @returns {Promise<{card: object, markdown: string}>} - Card data and markdown representation.
+ * @returns {Promise<{card: object, markdown: string, comments: Array}>} - Card data, markdown representation, and comments.
  */
 export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
   log('downloadCardToMarkdown called with cardId=%s, apiBase=%s', cardId, apiBase);
@@ -109,6 +132,10 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
     const response = await axios.get(url, { headers });
     log('Received card data: %O', response.data);
     const card = response.data;
+    
+    // Fetch comments
+    const comments = await fetchCardComments({ cardId, token, apiBase });
+    
     const turndownService = new TurndownService();
 
     let md = `# ${card.title}\n\n`;
@@ -188,6 +215,24 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
     log('Converted description to Markdown');
     md += '\n';
     
+    // Add comments section if any comments exist
+    if (comments && comments.length > 0) {
+      md += '\n## Comments\n\n';
+      
+      // Sort comments by created date (newest first)
+      const sortedComments = [...comments].sort((a, b) => 
+        new Date(b.created).getTime() - new Date(a.created).getTime()
+      );
+      
+      for (const comment of sortedComments) {
+        const author = comment.author?.full_name || comment.author?.username || 'Unknown';
+        const date = new Date(comment.created).toLocaleString();
+        md += `### By ${author} at ${date}\n\n`;
+        md += comment.text ? turndownService.turndown(comment.text) : '';
+        md += '\n\n';
+      }
+    }
+    
     // Add files section if any files exist
     if (card.files && card.files.length > 0) {
       md += '## Files\n\n';
@@ -209,7 +254,7 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
       }
     }
     
-    return { card, markdown: md };
+    return { card, markdown: md, comments };
   } catch (err) {
     if (typeof err.toJSON === 'function') {
       log('AxiosError toJSON:', JSON.stringify(err.toJSON(), null, 2));
@@ -278,7 +323,7 @@ if (invokedPath === currentFilePath) {
   
   try {
     const { cardId, apiBase } = parseCardInput(cardInput);
-    const { card, markdown } = await downloadCard({ cardId, token: argv.token, apiBase });
+    const { card, markdown, comments } = await downloadCard({ cardId, token: argv.token, apiBase });
     
     // Determine output directory
     const subdomain = extractSubdomain(apiBase);
@@ -289,6 +334,10 @@ if (invokedPath === currentFilePath) {
     const filesDir = path.join(outputDir, 'files');
     if (card.files && card.files.length > 0) {
       await mkdir(filesDir, { recursive: true });
+    }
+    const commentsDir = path.join(outputDir, 'comments');
+    if (comments && comments.length > 0) {
+      await mkdir(commentsDir, { recursive: true });
     }
     log('Created directory: %s', outputDir);
     
@@ -302,6 +351,18 @@ if (invokedPath === currentFilePath) {
     console.log(`✓ Card downloaded successfully:`);
     console.log(`  - Markdown: ${mdPath}`);
     console.log(`  - JSON: ${jsonPath}`);
+    
+    // Save comments as individual JSON files
+    if (comments && comments.length > 0) {
+      console.log(`\n✓ Saving ${comments.length} comment(s):`);
+      for (let i = 0; i < comments.length; i++) {
+        const comment = comments[i];
+        const commentFileName = `comment_${i + 1}_${comment.id || 'unknown'}.json`;
+        const commentPath = path.join(commentsDir, commentFileName);
+        await writeFile(commentPath, JSON.stringify(comment, null, 2), 'utf-8');
+        console.log(`  - Saved: ${commentPath}`);
+      }
+    }
     
     // Download all files
     if (card.files && card.files.length > 0) {

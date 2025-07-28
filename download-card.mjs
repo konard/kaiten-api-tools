@@ -141,8 +141,48 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
       md += `- **Location**: ${location}\n`;
     }
     
+    if (card.type) {
+      md += `- **Type**: [${card.type.letter}] ${card.type.name}\n`;
+    }
+    
     if (card.status?.name) md += `- **Status**: ${card.status.name}\n`;
     if (card.estimate != null) md += `- **Estimate**: ${card.estimate}\n`;
+    
+    // Add members
+    if (card.members && card.members.length > 0) {
+      md += `- **Members**: `;
+      const membersList = [];
+      
+      // Sort members: responsible (type 2) first, then others
+      const sortedMembers = [...card.members].sort((a, b) => {
+        if (a.type === 2 && b.type !== 2) return -1;
+        if (a.type !== 2 && b.type === 2) return 1;
+        return 0;
+      });
+      
+      for (const member of sortedMembers) {
+        let memberInfo = '';
+        if (member.username) memberInfo += `@${member.username}`;
+        if (member.full_name) {
+          if (memberInfo) memberInfo += ' ';
+          memberInfo += `(${member.full_name})`;
+        }
+        if (member.email) {
+          if (memberInfo) memberInfo += ' ';
+          memberInfo += `<${member.email}>`;
+        }
+        
+        // Mark responsible members
+        if (member.type === 2) {
+          memberInfo += ' (responsible)';
+        }
+        
+        membersList.push(memberInfo);
+      }
+      
+      md += membersList.join(', ') + '\n';
+    }
+    
     md += `\n## Description\n\n`;
     md += card.description ? turndownService.turndown(card.description) : '';
     log('Converted description to Markdown');

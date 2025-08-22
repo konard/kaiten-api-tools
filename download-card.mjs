@@ -76,17 +76,31 @@ function parseCardInput(input) {
     return { cardId: input.trim(), apiBase };
   }
   
-  // Parse URL format: https://domain.com/cardId
+  // Parse URL format
   try {
     const url = new URL(input);
-    const cardId = url.pathname.replace('/', '').trim();
-    if (!/^\d+$/.test(cardId)) {
+    let cardId;
+    
+    // Handle board card URL format: https://hq.kaiten.ru/space/583628/boards/card/54133274
+    if (url.pathname.includes('/boards/card/')) {
+      const pathParts = url.pathname.split('/');
+      const cardIndex = pathParts.findIndex(part => part === 'card');
+      if (cardIndex !== -1 && cardIndex + 1 < pathParts.length) {
+        cardId = pathParts[cardIndex + 1];
+      }
+    } else {
+      // Handle simple URL format: https://domain.com/cardId
+      cardId = url.pathname.replace('/', '').trim();
+    }
+    
+    if (!cardId || !/^\d+$/.test(cardId)) {
       throw new Error(`Invalid card ID extracted from URL: ${cardId}`);
     }
+    
     const apiBase = `${url.protocol}//${url.host}/api/v1`;
     return { cardId, apiBase };
   } catch (err) {
-    throw new Error(`Invalid URL format: ${input}. Expected format: https://company.kaiten.ru/123456 or just card ID`);
+    throw new Error(`Invalid URL format: ${input}. Expected format: https://company.kaiten.ru/123456, https://company.kaiten.ru/space/xxx/boards/card/123456, or just card ID`);
   }
 }
 

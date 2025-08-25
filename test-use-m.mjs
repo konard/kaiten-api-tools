@@ -1,101 +1,76 @@
 #!/usr/bin/env node
-
-console.log('=== Testing use-m functionality ===');
+/**
+ * test-use-m.mjs
+ * Tests for use-m functionality and compatibility issues.
+ * Usage: node test-use-m.mjs
+ */
 
 // Dynamically load use-m
 const { use } = eval(
   await fetch('https://unpkg.com/use-m/use.js').then(u => u.text())
 );
 
-console.log('✓ Loaded use-m');
+// Import test runner and assertions
+const { test } = await use('uvu@0.5.6');
+const { is, ok } = await use('uvu@0.5.6/assert');
 
-// Test 1: Load external npm packages
-console.log('\n1. Testing external npm packages...');
-try {
+test('use-m can load external npm packages', async () => {
   const debugModule = await use('debug@4.3.4');
-  console.log('✓ debug module loaded:', typeof debugModule);
+  // debug can be either function (main export) or object with exports
+  ok(typeof debugModule === 'function' || typeof debugModule === 'object');
   
   const axiosModule = await use('axios@1.9.0');
-  console.log('✓ axios module loaded:', typeof axiosModule);
+  // axios can be either function (main export) or object
+  ok(typeof axiosModule === 'function' || typeof axiosModule === 'object');
   
   const yargsModule = await use('yargs@17.7.2');
-  console.log('✓ yargs module loaded:', typeof yargsModule);
-} catch (err) {
-  console.log('✗ External packages error:', err.message);
-}
+  // yargs can be either function or object
+  ok(typeof yargsModule === 'function' || typeof yargsModule === 'object');
+});
 
-// Test 2: Load Node.js built-in modules
-console.log('\n2. Testing Node.js built-in modules...');
-try {
+test('use-m can load Node.js built-in modules', async () => {
   const pathModule = await use('node:path');
-  console.log('✓ node:path loaded:', typeof pathModule);
-  console.log('✓ path.join works:', pathModule.join('a', 'b'));
+  is(typeof pathModule, 'object');
+  is(pathModule.join('a', 'b'), 'a/b');
   
   const urlModule = await use('node:url');
-  console.log('✓ node:url loaded:', typeof urlModule);
+  is(typeof urlModule, 'object');
   
   const fsModule = await use('node:fs');
-  console.log('✓ node:fs loaded:', typeof fsModule);
-  console.log('✓ fs.readFileSync exists:', typeof fsModule.readFileSync);
-} catch (err) {
-  console.log('✗ Built-in modules error:', err.message);
-}
+  is(typeof fsModule, 'object');
+  is(typeof fsModule.readFileSync, 'function');
+});
 
-// Test 3: Test the problematic node:fs/promises
-console.log('\n3. Testing problematic node:fs/promises...');
-try {
+test('use-m node:fs/promises bug: returns callback-based functions', async () => {
   const fsPromises = await use('node:fs/promises');
-  console.log('✓ node:fs/promises loaded:', typeof fsPromises);
-  console.log('✓ Keys available:', Object.keys(fsPromises).slice(0, 10));
+  is(typeof fsPromises, 'object');
+  ok(Object.keys(fsPromises).length > 0);
   
   const { mkdir } = fsPromises;
-  console.log('✓ mkdir type:', typeof mkdir);
-  console.log('✓ mkdir params count:', mkdir.length);
+  is(typeof mkdir, 'function');
   
-  if (mkdir.length === 3) {
-    console.log('⚠️  WARNING: mkdir has 3 params (callback version) - this is the bug!');
-    console.log('⚠️  Expected: 2 params (promise version)');
-  } else if (mkdir.length === 2) {
-    console.log('✓ mkdir has 2 params (promise version) - working correctly!');
-  }
-  
-} catch (err) {
-  console.log('✗ node:fs/promises error:', err.message);
-}
+  // This demonstrates the bug: use-m returns callback-based mkdir (3 params) 
+  // instead of promise-based mkdir (2 params)
+  is(mkdir.length, 3, 'use-m bug: mkdir has 3 params (callback version)');
+});
 
-// Test 4: Compare with native import
-console.log('\n4. Comparing with native import...');
-try {
+test('native import vs use-m comparison shows the difference', async () => {
   const nativeFsPromises = await import('node:fs/promises');
   const { mkdir: nativeMkdir } = nativeFsPromises;
-  console.log('✓ Native mkdir params count:', nativeMkdir.length);
-  console.log('✓ Native mkdir toString:', nativeMkdir.toString().substring(0, 50) + '...');
+  is(nativeMkdir.length, 2, 'native mkdir has 2 params (promise version)');
   
   const useMFsPromises = await use('node:fs/promises');
   const { mkdir: useMkdir } = useMFsPromises;
-  console.log('✓ use-m mkdir params count:', useMkdir.length);
-  console.log('✓ use-m mkdir toString:', useMkdir.toString().substring(0, 50) + '...');
+  is(useMkdir.length, 3, 'use-m mkdir has 3 params (callback version)');
   
-  if (nativeMkdir.length !== useMkdir.length) {
-    console.log('✗ MISMATCH: Native and use-m return different mkdir functions!');
-  } else {
-    console.log('✓ MATCH: Native and use-m return same mkdir function');
-  }
-  
-} catch (err) {
-  console.log('✗ Comparison error:', err.message);
-}
+  // This test documents the mismatch
+  ok(nativeMkdir.length !== useMkdir.length, 'Native and use-m return different mkdir functions');
+});
 
-// Test 5: Local module loading
-console.log('\n5. Testing local module loading...');
-try {
+test('use-m can load local modules', async () => {
   const createSpace = await use('./create-space.mjs');
-  console.log('✓ Local module loaded:', typeof createSpace);
-  if (createSpace.createSpace) {
-    console.log('✓ createSpace function available:', typeof createSpace.createSpace);
-  }
-} catch (err) {
-  console.log('✗ Local module error:', err.message);
-}
+  is(typeof createSpace, 'object');
+  is(typeof createSpace.createSpace, 'function');
+});
 
-console.log('\n=== use-m test completed ===');
+test.run();

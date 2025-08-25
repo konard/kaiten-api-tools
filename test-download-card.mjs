@@ -14,7 +14,7 @@ const { use } = eval(
 );
 
 // Load local modules
-const { downloadCardToMarkdown } = await use('./download-card.mjs');
+const { downloadCard } = await use('./download-card.mjs');
 const { createSpace } = await use('./create-space.mjs');
 const { createBoard } = await use('./create-board.mjs');
 const { createCard } = await use('./create-card.mjs');
@@ -67,14 +67,14 @@ test.before(async () => {
 });
 
 test('function export: should fetch and convert a card to markdown with a heading', async () => {
-  const md = await downloadCardToMarkdown({ cardId: card.id, token });
-  equal(md.startsWith('# '), true);
+  const { markdown } = await downloadCard({ cardId: card.id, token });
+  equal(markdown.startsWith('# '), true);
 });
 
 test('CLI: should match the function export output', async () => {
-  const mdFunc = await downloadCardToMarkdown({ cardId: card.id, token });
-  const { stdout } = await execAsync(`node ${downloadScript} ${card.id}`);
-  equal(stdout.trim(), mdFunc.trim());
+  const { markdown } = await downloadCard({ cardId: card.id, token });
+  const { stdout } = await execAsync(`node ${downloadScript} ${card.id} --stdout-only`);
+  equal(stdout.trim(), markdown.trim());
 });
 
 // Cleanup created Kaiten resources after all tests

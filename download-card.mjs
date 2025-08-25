@@ -326,6 +326,12 @@ if (invokedPath === currentFilePath) {
       type: 'string',
       default: process.env.KAITEN_API_TOKEN
     })
+    .option('stdout-only', {
+      alias: 's',
+      describe: 'Output only markdown to stdout (no files created)',
+      type: 'boolean',
+      default: false
+    })
     .help()
     .alias('help', 'h')
     .argv;
@@ -339,8 +345,14 @@ if (invokedPath === currentFilePath) {
   }
   
   try {
-    const { cardId, apiBase } = parseCardInput(cardInput);
+    const { cardId, apiBase } = parseCardInput(String(cardInput));
     const { card, markdown, comments } = await downloadCard({ cardId, token: argv.token, apiBase });
+    
+    // If stdout-only mode, just output the markdown and exit
+    if (argv.stdoutOnly) {
+      console.log(markdown);
+      process.exit(0);
+    }
     
     // Determine output directory
     const subdomain = extractSubdomain(apiBase);

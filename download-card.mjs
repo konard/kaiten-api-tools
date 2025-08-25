@@ -18,7 +18,7 @@ const { use } = eval(
 );
 
 // Load Node.js built-in modules
-const { writeFile, mkdir } = await use('node:fs/promises');
+const { writeFile, mkdir } = await import('node:fs/promises');
 const { createWriteStream } = await use('node:fs');
 const { fileURLToPath } = await use('node:url');
 const pathModule = await use('node:path');

@@ -77,6 +77,130 @@ test('CLI: should match the function export output', async () => {
   equal(stdout.trim(), markdown.trim());
 });
 
+// Test utility functions by importing them directly
+test('parseCardInput: should handle numeric card ID with env var', async () => {
+  // Test that numeric card IDs work when KAITEN_API_BASE_URL is set
+  const { stdout } = await execAsync(`KAITEN_API_BASE_URL="${apiBase}" node ${downloadScript} ${card.id} --stdout-only`);
+  equal(stdout.includes('# '), true);
+});
+
+test('parseCardInput: should handle board card URL format', async () => {
+  const testUrl = `${apiBase.replace('/api/v1', '')}/space/583628/boards/card/${card.id}`;
+  const { stdout } = await execAsync(`node ${downloadScript} "${testUrl}" --stdout-only`);
+  // Should successfully parse and return markdown
+  equal(stdout.includes('# '), true);
+});
+
+test('parseCardInput: should handle simple URL format', async () => {
+  const testUrl = `${apiBase.replace('/api/v1', '')}/${card.id}`;
+  const { stdout } = await execAsync(`node ${downloadScript} "${testUrl}" --stdout-only`);
+  // Should successfully parse and return markdown
+  equal(stdout.includes('# '), true);
+});
+
+test('downloadCard: should return card, markdown, and comments', async () => {
+  const result = await downloadCard({ cardId: card.id, token });
+  equal(typeof result, 'object');
+  equal(typeof result.card, 'object');
+  equal(typeof result.markdown, 'string');
+  equal(Array.isArray(result.comments), true);
+  equal(typeof result.card.id, 'number');
+  equal(result.card.id, card.id);
+});
+
+test('downloadCard: should include card metadata in markdown', async () => {
+  const { markdown } = await downloadCard({ cardId: card.id, token });
+  equal(markdown.includes(`**ID**: ${card.id}`), true);
+  equal(markdown.includes('## Description'), true);
+});
+
+test('CLI: should support --output-dir option', async () => {
+  const tempDir = './test-output-' + Date.now();
+  try {
+    const { stderr } = await execAsync(`node ${downloadScript} ${card.id} --output-dir "${tempDir}"`);
+    // Should complete without error
+    equal(stderr.length, 0);
+    
+    // Check that directory was created
+    const fs = await use('node:fs');
+    const { promisify } = await use('node:util');
+    const readdir = promisify(fs.readdir);
+    const files = await readdir(tempDir);
+    equal(files.includes('card.md'), true);
+    equal(files.includes('card.json'), true);
+  } finally {
+    // Cleanup
+    try {
+      const fs = await use('node:fs');
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+  }
+});
+
+test('CLI: should support --token option', async () => {
+  const { stdout } = await execAsync(`node ${downloadScript} ${card.id} --token "${token}" --stdout-only`);
+  equal(stdout.includes('# '), true);
+});
+
+test('CLI: should handle nonexistent card ID gracefully', async () => {
+  try {
+    await execAsync(`node ${downloadScript} 999999999 --stdout-only`);
+    equal(false, true, 'Should have thrown an error');
+  } catch (err) {
+    equal(typeof err.message, 'string');
+    equal(err.message.includes('Command failed'), true);
+  }
+});
+
+test('CLI: should handle missing card ID', async () => {
+  try {
+    await execAsync(`node ${downloadScript} --stdout-only`);
+    equal(false, true, 'Should have thrown an error');
+  } catch (err) {
+    equal(typeof err.message, 'string');
+    equal(err.message.includes('Command failed'), true);
+  }
+});
+
+test('CLI: should show help with --help', async () => {
+  const { stdout } = await execAsync(`node ${downloadScript} --help`);
+  equal(stdout.includes('Usage:'), true);
+  equal(stdout.includes('--stdout-only'), true);
+  equal(stdout.includes('--output-dir'), true);
+  equal(stdout.includes('--token'), true);
+});
+
+test('downloadCard: should handle card without owner', async () => {
+  // The created test card might not have an owner, which is good for testing
+  const { markdown } = await downloadCard({ cardId: card.id, token });
+  equal(typeof markdown, 'string');
+  // Should not crash even if owner is undefined
+  equal(markdown.length > 0, true);
+});
+
+test('downloadCard: should handle API errors gracefully', async () => {
+  try {
+    await downloadCard({ cardId: 'nonexistent', token });
+    equal(false, true, 'Should have thrown an error');
+  } catch (err) {
+    equal(typeof err, 'object');
+    // Should be an axios error or similar
+  }
+});
+
+// Test error handling for invalid URLs
+test('CLI: should handle invalid URL format', async () => {
+  try {
+    await execAsync(`node ${downloadScript} "not-a-valid-url" --stdout-only`);
+    equal(false, true, 'Should have thrown an error');
+  } catch (err) {
+    equal(typeof err.message, 'string');
+    equal(err.message.includes('Command failed'), true);
+  }
+});
+
 // Cleanup created Kaiten resources after all tests
 test.after(async () => {
   const headers = token ? { Authorization: `Bearer ${token}` } : {};

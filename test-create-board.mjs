@@ -18,11 +18,13 @@ const { createBoard } = await use('./create-board.mjs');
 const { createSpace } = await use('./create-space.mjs');
 
 // Load Node.js built-in modules
-const { exec } = await use('node:child_process');
-const { promisify } = await use('node:util');
 const { fileURLToPath } = await use('node:url');
 const pathModule = await use('node:path');
 const path = pathModule.default || pathModule;
+
+// Load command-stream for CLI testing
+const commandStreamModule = await use('command-stream@0.3.0');
+const { $ } = commandStreamModule;
 
 // Load .env
 const { config } = await use('dotenv@16.1.4');
@@ -36,7 +38,6 @@ const { is } = await use('uvu@0.5.6/assert');
 const axiosModule = await use('axios@1.9.0');
 const axios = axiosModule.default || axiosModule;
 
-const execAsync = promisify(exec);
 const currentFilePath = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(currentFilePath);
 
@@ -68,9 +69,7 @@ test('function export: createBoard returns a board with id and correct name', as
 
 // Test CLI
 test('CLI: create-board CLI outputs matching JSON', async () => {
-  const { stdout, stderr } = await execAsync(
-    `node ${path.resolve(__dirname, 'create-board.mjs')} ${space.id} ${boardName}`
-  );
+  const { stdout, stderr } = await $`node ${path.resolve(__dirname, 'create-board.mjs')} ${space.id} ${boardName}`;
   cliBoard = JSON.parse(stdout);
   is(typeof cliBoard.id, 'number');
   is(cliBoard.name, boardName);

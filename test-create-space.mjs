@@ -17,11 +17,13 @@ const { use } = eval(
 const { createSpace } = await use('./create-space.mjs');
 
 // Load Node.js built-in modules
-const { exec } = await use('node:child_process');
-const { promisify } = await use('node:util');
 const { fileURLToPath } = await use('node:url');
 const pathModule = await use('node:path');
 const path = pathModule.default || pathModule;
+
+// Load command-stream for CLI testing
+const commandStreamModule = await use('command-stream@0.3.0');
+const { $ } = commandStreamModule;
 
 // Load .env
 const { config } = await use('dotenv@16.1.4');
@@ -35,7 +37,6 @@ const { is } = await use('uvu@0.5.6/assert');
 const axiosModule = await use('axios@1.9.0');
 const axios = axiosModule.default || axiosModule;
 
-const execAsync = promisify(exec);
 const currentFilePath = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(currentFilePath);
 
@@ -62,11 +63,21 @@ test('function export: createSpace returns a space with id and correct title', a
 
 // Test CLI
 test('CLI: create-space CLI outputs matching JSON with debug tracing', async () => {
-  const { stdout, stderr } = await execAsync(`DEBUG=kaiten:create-space node ${path.resolve(__dirname, 'create-space.mjs')} ${spaceName}`);
-  // Optionally inspect stderr for debug logs
-  cliSpace = JSON.parse(stdout);
-  is(typeof cliSpace.id, 'number');
-  is(cliSpace.title, spaceName);
+  const oldDebug = process.env.DEBUG;
+  process.env.DEBUG = 'kaiten:create-space';
+  try {
+    const { stdout, stderr } = await $`node ${path.resolve(__dirname, 'create-space.mjs')} ${spaceName}`;
+    // Optionally inspect stderr for debug logs
+    cliSpace = JSON.parse(stdout);
+    is(typeof cliSpace.id, 'number');
+    is(cliSpace.title, spaceName);
+  } finally {
+    if (oldDebug) {
+      process.env.DEBUG = oldDebug;
+    } else {
+      delete process.env.DEBUG;
+    }
+  }
 });
 
 // Cleanup resources after tests

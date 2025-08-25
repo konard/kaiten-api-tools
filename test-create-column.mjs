@@ -19,11 +19,13 @@ const { createBoard } = await use('./create-board.mjs');
 const { createColumn } = await use('./create-column.mjs');
 
 // Load Node.js built-in modules
-const { exec } = await use('node:child_process');
-const { promisify } = await use('node:util');
 const { fileURLToPath } = await use('node:url');
 const pathModule = await use('node:path');
 const path = pathModule.default || pathModule;
+
+// Load command-stream for CLI testing
+const commandStreamModule = await use('command-stream@0.3.0');
+const { $ } = commandStreamModule;
 
 // Load environment variables from .env
 const { config } = await use('dotenv@16.1.4');
@@ -40,7 +42,6 @@ const { is } = await use('uvu@0.5.6/assert');
 const axiosModule = await use('axios@1.9.0');
 const axios = axiosModule.default || axiosModule;
 
-const execAsync = promisify(exec);
 const currentFilePath = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(currentFilePath);
 
@@ -75,9 +76,7 @@ test('function export: createColumn returns a column with id and correct title',
 // Test CLI
 test('CLI: create-column CLI outputs matching JSON', async () => {
   console.log('CLI test: invoking create-column CLI with boardId=', board.id, 'title=', columnTitle);
-  const { stdout } = await execAsync(
-    `node ${path.resolve(__dirname, 'create-column.mjs')} ${board.id} ${columnTitle}`
-  );
+  const { stdout } = await $`node ${path.resolve(__dirname, 'create-column.mjs')} ${board.id} ${columnTitle}`;
   console.log('CLI test: stdout =', stdout);
   cliColumn = JSON.parse(stdout);
   console.log('CLI test: parsed =', cliColumn);

@@ -19,11 +19,13 @@ const { createBoard } = await use('./create-board.mjs');
 const { createCard } = await use('./create-card.mjs');
 
 // Load Node.js built-in modules
-const { exec } = await use('node:child_process');
-const { promisify } = await use('node:util');
 const { fileURLToPath } = await use('node:url');
 const pathModule = await use('node:path');
 const path = pathModule.default || pathModule;
+
+// Load command-stream for CLI testing
+const commandStreamModule = await use('command-stream@0.3.0');
+const { $ } = commandStreamModule;
 
 // Load .env
 const { config } = await use('dotenv@16.1.4');
@@ -40,7 +42,6 @@ const { is } = await use('uvu@0.5.6/assert');
 const axiosModule = await use('axios@1.9.0');
 const axios = axiosModule.default || axiosModule;
 
-const execAsync = promisify(exec);
 const currentFilePath = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(currentFilePath);
 
@@ -81,9 +82,7 @@ test('function export: createCard returns a card with id and correct name', asyn
 // Test CLI for card
 test('CLI: create-card CLI outputs matching JSON', async () => {
   console.log('CLI test: invoking create-card CLI with boardId=', board.id, ' name=', cardName);
-  const { stdout } = await execAsync(
-    `node ${path.resolve(__dirname, 'create-card.mjs')} ${board.id} ${cardName}`
-  );
+  const { stdout } = await $`node ${path.resolve(__dirname, 'create-card.mjs')} ${board.id} ${cardName}`;
   console.log('CLI test: stdout from create-card CLI:', stdout);
   cliCard = JSON.parse(stdout);
   console.log('CLI test: parsed CLI output:', cliCard);

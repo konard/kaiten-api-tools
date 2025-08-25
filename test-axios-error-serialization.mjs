@@ -64,7 +64,7 @@ test('AxiosError: should have toJSON method for serialization', async () => {
     is(serialized.config.method, 'get', 'method should be "get"');
     is(serialized.config.url, 'http://localhost:9999/this-should-fail', 'url should match');
     is(serialized.code, 'ECONNREFUSED', 'code should be ECONNREFUSED');
-    is(serialized.name, 'Error', 'name should be Error');
+    is(serialized.name, 'AggregateError', 'name should be AggregateError');
   }
 });
 

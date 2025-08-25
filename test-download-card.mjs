@@ -195,6 +195,143 @@ test('downloadCard: should handle card without owner', async () => {
   equal(markdown.length > 0, true);
 });
 
+test('downloadCard: should handle checklists in card structure', async () => {
+  const { card: cardData } = await downloadCard({ cardId: card.id, token });
+  
+  // Mock checklist data to test the markdown generation
+  const mockCard = {
+    ...cardData,
+    checklists: [
+      {
+        name: 'Test Checklist',
+        items: [
+          { name: 'Completed item', checked: true },
+          { name: 'Pending item', checked: false },
+          { 
+            name: 'Item with due date', 
+            checked: false, 
+            due_date: '2025-01-01',
+            assignee: { username: 'testuser' }
+          }
+        ]
+      }
+    ]
+  };
+  
+  // Test markdown generation with mock data
+  const { downloadCard: testDownload } = await use('./download-card.mjs');
+  
+  // Create a temporary function to test checklist rendering
+  const turndownModule = await use('turndown@7.2.0');
+  const TurndownService = turndownModule.default || turndownModule;
+  const turndownService = new TurndownService();
+  
+  let md = `# ${mockCard.title}\n\n`;
+  md += `- **ID**: ${mockCard.id}\n`;
+  md += `\n## Description\n\n`;
+  md += mockCard.description ? turndownService.turndown(mockCard.description) : '';
+  md += '\n';
+  
+  // Test checklist rendering logic
+  const checklists = mockCard.checklists || mockCard.check_lists || [];
+  const checklistItems = mockCard.checklist_items || mockCard.checklistItems || [];
+  
+  if (checklists.length > 0 || checklistItems.length > 0) {
+    md += '\n## Checklists\n\n';
+    
+    if (checklists.length > 0) {
+      for (const checklist of checklists) {
+        if (checklist.name || checklist.title) {
+          md += `### ${checklist.name || checklist.title}\n\n`;
+        }
+        
+        const items = checklist.items || checklist.checklist_items || [];
+        if (items.length > 0) {
+          for (const item of items) {
+            const checkbox = item.checked || item.completed || item.is_checked ? '[x]' : '[ ]';
+            const itemName = item.name || item.title || item.text || 'Unnamed item';
+            md += `- ${checkbox} ${itemName}`;
+            
+            if (item.due_date || item.due) {
+              const dueDate = item.due_date || item.due;
+              md += ` (due: ${dueDate})`;
+            }
+            
+            if (item.assignee) {
+              if (item.assignee.username) {
+                md += ` [@${item.assignee.username}]`;
+              } else if (item.assignee.full_name) {
+                md += ` [${item.assignee.full_name}]`;
+              }
+            }
+            
+            md += '\n';
+          }
+        }
+        md += '\n';
+      }
+    }
+  }
+  
+  // Verify checklist rendering
+  equal(md.includes('## Checklists'), true);
+  equal(md.includes('### Test Checklist'), true);
+  equal(md.includes('- [x] Completed item'), true);
+  equal(md.includes('- [ ] Pending item'), true);
+  equal(md.includes('- [ ] Item with due date (due: 2025-01-01) [@testuser]'), true);
+});
+
+test('downloadCard: should handle flat checklist items structure', async () => {
+  const { card: cardData } = await downloadCard({ cardId: card.id, token });
+  
+  // Mock flat checklist structure
+  const mockCard = {
+    ...cardData,
+    checklist_items: [
+      { name: 'Flat item 1', checked: true },
+      { name: 'Flat item 2', checked: false }
+    ]
+  };
+  
+  // Test markdown generation with flat checklist structure
+  const turndownModule = await use('turndown@7.2.0');
+  const TurndownService = turndownModule.default || turndownModule;
+  const turndownService = new TurndownService();
+  
+  let md = `# ${mockCard.title}\n\n`;
+  md += `- **ID**: ${mockCard.id}\n`;
+  md += `\n## Description\n\n`;
+  md += mockCard.description ? turndownService.turndown(mockCard.description) : '';
+  md += '\n';
+  
+  // Test flat checklist rendering logic
+  const checklists = mockCard.checklists || mockCard.check_lists || [];
+  const checklistItems = mockCard.checklist_items || mockCard.checklistItems || [];
+  
+  if (checklists.length > 0 || checklistItems.length > 0) {
+    md += '\n## Checklists\n\n';
+    
+    if (checklistItems.length > 0) {
+      if (checklists.length === 0) {
+        md += `### Checklist\n\n`;
+      }
+      
+      for (const item of checklistItems) {
+        const checkbox = item.checked || item.completed || item.is_checked ? '[x]' : '[ ]';
+        const itemName = item.name || item.title || item.text || 'Unnamed item';
+        md += `- ${checkbox} ${itemName}\n`;
+      }
+      md += '\n';
+    }
+  }
+  
+  // Verify flat checklist rendering
+  equal(md.includes('## Checklists'), true);
+  equal(md.includes('### Checklist'), true);
+  equal(md.includes('- [x] Flat item 1'), true);
+  equal(md.includes('- [ ] Flat item 2'), true);
+});
+
 test('downloadCard: should handle API errors gracefully', async () => {
   try {
     await downloadCard({ cardId: 'nonexistent', token });

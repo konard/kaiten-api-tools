@@ -232,6 +232,82 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
     log('Converted description to Markdown');
     md += '\n';
     
+    // Add checklists section if any checklists exist
+    // Support multiple possible structures: card.checklists, card.checklist_items, or card.check_lists
+    const checklists = card.checklists || card.check_lists || [];
+    const checklistItems = card.checklist_items || card.checklistItems || [];
+    
+    if (checklists.length > 0 || checklistItems.length > 0) {
+      md += '\n## Checklists\n\n';
+      
+      // Handle structured checklists (with names and items)
+      if (checklists.length > 0) {
+        for (const checklist of checklists) {
+          if (checklist.name || checklist.title) {
+            md += `### ${checklist.name || checklist.title}\n\n`;
+          }
+          
+          const items = checklist.items || checklist.checklist_items || [];
+          if (items.length > 0) {
+            for (const item of items) {
+              const checkbox = item.checked || item.completed || item.is_checked ? '[x]' : '[ ]';
+              const itemName = item.name || item.title || item.text || 'Unnamed item';
+              md += `- ${checkbox} ${itemName}`;
+              
+              // Add due date if present
+              if (item.due_date || item.due) {
+                const dueDate = item.due_date || item.due;
+                md += ` (due: ${dueDate})`;
+              }
+              
+              // Add assignee if present
+              if (item.assignee) {
+                if (item.assignee.username) {
+                  md += ` [@${item.assignee.username}]`;
+                } else if (item.assignee.full_name) {
+                  md += ` [${item.assignee.full_name}]`;
+                }
+              }
+              
+              md += '\n';
+            }
+          }
+          md += '\n';
+        }
+      }
+      
+      // Handle flat checklist items (direct array of items without grouping)
+      if (checklistItems.length > 0) {
+        if (checklists.length === 0) {
+          md += `### Checklist\n\n`;
+        }
+        
+        for (const item of checklistItems) {
+          const checkbox = item.checked || item.completed || item.is_checked ? '[x]' : '[ ]';
+          const itemName = item.name || item.title || item.text || 'Unnamed item';
+          md += `- ${checkbox} ${itemName}`;
+          
+          // Add due date if present
+          if (item.due_date || item.due) {
+            const dueDate = item.due_date || item.due;
+            md += ` (due: ${dueDate})`;
+          }
+          
+          // Add assignee if present
+          if (item.assignee) {
+            if (item.assignee.username) {
+              md += ` [@${item.assignee.username}]`;
+            } else if (item.assignee.full_name) {
+              md += ` [${item.assignee.full_name}]`;
+            }
+          }
+          
+          md += '\n';
+        }
+        md += '\n';
+      }
+    }
+    
     // Add comments section if any comments exist
     if (comments && comments.length > 0) {
       md += '\n## Comments\n\n';

@@ -7,19 +7,24 @@
  *   DEFAULT_CARD_ID - Kaiten card ID to test.
  *   KAITEN_API_TOKEN - API token for Kaiten.
  */
-import { downloadCardToMarkdown } from './download-card.mjs';
-import { createSpace } from './create-space.mjs';
-import { createBoard } from './create-board.mjs';
-import { createCard } from './create-card.mjs';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { fileURLToPath } from 'url';
-import path from 'path';
 
 // Dynamically load use-m
 const { use } = eval(
   await fetch('https://unpkg.com/use-m/use.js').then(u => u.text())
 );
+
+// Load local modules
+const { downloadCardToMarkdown } = await use('./download-card.mjs');
+const { createSpace } = await use('./create-space.mjs');
+const { createBoard } = await use('./create-board.mjs');
+const { createCard } = await use('./create-card.mjs');
+
+// Load Node.js built-in modules
+const { exec } = await use('node:child_process');
+const { promisify } = await use('node:util');
+const { fileURLToPath } = await use('node:url');
+const pathModule = await use('node:path');
+const path = pathModule.default || pathModule;
 
 // Load environment variables from .env
 const { config } = await use('dotenv@16.1.4');

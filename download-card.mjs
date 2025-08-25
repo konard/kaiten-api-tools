@@ -11,15 +11,18 @@
  * Environment Variables:
  *   KAITEN_API_TOKEN - Bearer token for authentication.
  */
-import { writeFile, mkdir } from 'fs/promises';
-import { createWriteStream } from 'fs';
-import { fileURLToPath } from 'url';
-import path from 'path';
 
 // Dynamically load use-m
 const { use } = eval(
   await fetch('https://unpkg.com/use-m/use.js').then(u => u.text())
 );
+
+// Load Node.js built-in modules
+const { writeFile, mkdir } = await use('node:fs/promises');
+const { createWriteStream } = await use('node:fs');
+const { fileURLToPath } = await use('node:url');
+const pathModule = await use('node:path');
+const path = pathModule.default || pathModule;
 
 // Import debug for tracing via use-m
 const debugModule = await use('debug@4.3.4');

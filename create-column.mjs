@@ -8,14 +8,17 @@
  *   KAITEN_API_TOKEN - Bearer token for authentication.
  *   KAITEN_API_BASE_URL - Base URL for the API.
  */
-import { writeFile } from 'fs/promises';
-import { fileURLToPath } from 'url';
-import path from 'path';
 
 // Dynamically load use-m
 const { use } = eval(
   await fetch('https://unpkg.com/use-m/use.js').then(u => u.text())
 );
+
+// Load Node.js built-in modules
+const { writeFile } = await use('node:fs/promises');
+const { fileURLToPath } = await use('node:url');
+const pathModule = await use('node:path');
+const path = pathModule.default || pathModule;
 
 // Import debug for tracing via use-m
 const debugModule = await use('debug@4.3.4');

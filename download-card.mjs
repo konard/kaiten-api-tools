@@ -627,12 +627,12 @@ if (invokedPath === currentFilePath) {
     
     // If stdout-only mode, just output the markdown and exit
     if (argv.stdoutOnly) {
-      const { card, markdown, comments } = await downloadCard({ 
+      const { markdown } = await downloadCard({ 
         cardId, 
         token: argv.token, 
         apiBase, 
         includeChildren: argv.recursive,
-        skipFiles: argv.skipFilesDownloadDownload
+        skipFiles: argv.skipFilesDownload
       });
       console.log(markdown);
       process.exit(0);

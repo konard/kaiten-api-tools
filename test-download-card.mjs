@@ -26,7 +26,7 @@ const path = pathModule.default || pathModule;
 
 // Load command-stream for CLI testing
 const commandStreamModule = await use('command-stream@0.3.0');
-const { $, create } = commandStreamModule;
+const { create } = commandStreamModule;
 
 // OFFICIAL SOLUTION: Create quiet executor with mirror: false
 // Based on command-stream documentation: https://github.com/link-foundation/command-stream

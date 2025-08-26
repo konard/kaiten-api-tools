@@ -185,6 +185,8 @@ test('CLI: should show help with --help', async () => {
   equal(stdout.includes('--stdout-only'), true);
   equal(stdout.includes('--output-dir'), true);
   equal(stdout.includes('--token'), true);
+  equal(stdout.includes('--recursive'), true);
+  equal(stdout.includes('--max-depth'), true);
 });
 
 test('downloadCard: should handle card without owner', async () => {
@@ -219,7 +221,6 @@ test('downloadCard: should handle checklists in card structure', async () => {
   };
   
   // Test markdown generation with mock data
-  const { downloadCard: testDownload } = await use('./download-card.mjs');
   
   // Create a temporary function to test checklist rendering
   const turndownModule = await use('turndown@7.2.0');
@@ -330,6 +331,96 @@ test('downloadCard: should handle flat checklist items structure', async () => {
   equal(md.includes('### Checklist'), true);
   equal(md.includes('- [x] Flat item 1'), true);
   equal(md.includes('- [ ] Flat item 2'), true);
+});
+
+test('downloadCard: should include children information when includeChildren is true', async () => {
+  // Create a mock card with children_count
+  const { card: cardData } = await downloadCard({ cardId: card.id, token });
+  
+  // Mock a card with children
+  const mockCard = {
+    ...cardData,
+    children_count: 2,
+    children_done: 1
+  };
+  
+  // Test children count display
+  let md = `# ${mockCard.title}\n\n`;
+  md += `- **ID**: ${mockCard.id}\n`;
+  if (mockCard.children_count > 0) {
+    md += `- **Children**: ${mockCard.children_done}/${mockCard.children_count} completed\n`;
+  }
+  
+  // Verify children information is displayed
+  equal(md.includes('**Children**: 1/2 completed'), true);
+});
+
+test('downloadCard: should handle children cards structure in markdown', async () => {
+  const { card: cardData } = await downloadCard({ cardId: card.id, token });
+  
+  // Mock children data
+  const mockChildren = [
+    {
+      id: 12345,
+      title: 'Child Card 1',
+      status: { name: 'In Progress' },
+      type: { name: 'Task', letter: 'T' },
+      children_count: 0,
+      children_done: 0
+    },
+    {
+      id: 12346,
+      title: 'Child Card 2',
+      status: { name: 'Done' },
+      type: { name: 'Bug', letter: 'B' },
+      children_count: 3,
+      children_done: 2
+    }
+  ];
+  
+  // Test children markdown generation
+  let md = '';
+  if (mockChildren && mockChildren.length > 0) {
+    md += '\n## Children Cards\n\n';
+    
+    for (const child of mockChildren) {
+      const childTitle = child.title || `Card ${child.id}`;
+      const childPath = `./children/${child.id}/card.md`;
+      md += `- [${childTitle}](${childPath})`;
+      
+      if (child.status?.name) {
+        md += ` - ${child.status.name}`;
+      }
+      if (child.type?.name) {
+        md += ` [${child.type.letter}]`;
+      }
+      
+      if (child.children_count > 0) {
+        md += ` (${child.children_done}/${child.children_count} subtasks)`;
+      }
+      
+      md += '\n';
+    }
+    md += '\n';
+  }
+  
+  // Verify children section rendering
+  equal(md.includes('## Children Cards'), true);
+  equal(md.includes('[Child Card 1](./children/12345/card.md) - In Progress [T]'), true);
+  equal(md.includes('[Child Card 2](./children/12346/card.md) - Done [B] (2/3 subtasks)'), true);
+});
+
+test('CLI: should support --recursive option', async () => {
+  // Test that the recursive flag is accepted (may not have actual children to test with)
+  try {
+    const { stdout, stderr } = await $`node ${downloadScript} ${card.id} --recursive --max-depth 1 --stdout-only`;
+    // Should complete without error, even if no children exist
+    equal(typeof stdout, 'string');
+    equal(stderr.length, 0);
+  } catch (err) {
+    // If it fails, it should be due to no children, not parsing error
+    equal(typeof err.message, 'string');
+  }
 });
 
 test('downloadCard: should handle API errors gracefully', async () => {

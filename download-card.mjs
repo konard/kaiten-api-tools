@@ -131,14 +131,38 @@ async function fetchCardComments({ cardId, token, apiBase }) {
 }
 
 /**
+ * Fetch children cards for a Kaiten card.
+ * @param {object} options
+ * @param {string} options.cardId - The Kaiten card ID.
+ * @param {string} options.token - API token.
+ * @param {string} options.apiBase - Base URL.
+ * @returns {Promise<Array>} - Array of children cards.
+ */
+async function fetchCardChildren({ cardId, token, apiBase }) {
+  log('fetchCardChildren called with cardId=%s, apiBase=%s', cardId, apiBase);
+  const url = `${apiBase}/cards/${cardId}/children`;
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  
+  try {
+    const response = await axios.get(url, { headers });
+    log('Received %d children cards', response.data.length);
+    return response.data;
+  } catch (err) {
+    log('Failed to fetch children cards: %O', err);
+    return [];
+  }
+}
+
+/**
  * Download Kaiten card data and convert to Markdown.
  * @param {object} options
  * @param {string} options.cardId - The Kaiten card ID.
  * @param {string} options.token - API token.
  * @param {string} [options.apiBase='https://developers.kaiten.ru/v1'] - Base URL.
- * @returns {Promise<{card: object, markdown: string, comments: Array}>} - Card data, markdown representation, and comments.
+ * @param {boolean} [options.includeChildren=false] - Whether to include children cards.
+ * @returns {Promise<{card: object, markdown: string, comments: Array, children: Array}>} - Card data, markdown representation, comments, and children data.
  */
-export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL }) {
+export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL, includeChildren = false }) {
   log('downloadCardToMarkdown called with cardId=%s, apiBase=%s', cardId, apiBase);
   if (!cardId) throw new Error('cardId is required');
   if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
@@ -152,6 +176,14 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
     
     // Fetch comments
     const comments = await fetchCardComments({ cardId, token, apiBase });
+    
+    // Fetch children cards if requested
+    let childrenData = [];
+    if (includeChildren && (card.children_count > 0)) {
+      const children = await fetchCardChildren({ cardId, token, apiBase });
+      childrenData = children;
+      log('Found %d children for card %s', children.length, cardId);
+    }
     
     const turndownService = new TurndownService();
 
@@ -191,6 +223,11 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
     
     if (card.status?.name) md += `- **Status**: ${card.status.name}\n`;
     if (card.estimate != null) md += `- **Estimate**: ${card.estimate}\n`;
+    
+    // Add children count information
+    if (card.children_count > 0) {
+      md += `- **Children**: ${card.children_done}/${card.children_count} completed\n`;
+    }
     
     // Add members
     if (card.members && card.members.length > 0) {
@@ -347,7 +384,34 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
       }
     }
     
-    return { card, markdown: md, comments };
+    // Add children section if any children exist
+    if (childrenData && childrenData.length > 0) {
+      md += '\n## Children Cards\n\n';
+      
+      for (const child of childrenData) {
+        const childTitle = child.title || `Card ${child.id}`;
+        const childPath = `./children/${child.id}/card.md`;
+        md += `- [${childTitle}](${childPath})`;
+        
+        // Add status and type if available
+        if (child.status?.name) {
+          md += ` - ${child.status.name}`;
+        }
+        if (child.type?.name) {
+          md += ` [${child.type.letter}]`;
+        }
+        
+        // Add completion indicator
+        if (child.children_count > 0) {
+          md += ` (${child.children_done}/${child.children_count} subtasks)`;
+        }
+        
+        md += '\n';
+      }
+      md += '\n';
+    }
+    
+    return { card, markdown: md, comments, children: childrenData };
   } catch (err) {
     if (typeof err.toJSON === 'function') {
       log('AxiosError toJSON:', JSON.stringify(err.toJSON(), null, 2));
@@ -359,6 +423,103 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
     }
     throw err;
   }
+}
+
+/**
+ * Recursively download a card and all its children.
+ * @param {object} options
+ * @param {string} options.cardId - The Kaiten card ID.
+ * @param {string} options.token - API token.
+ * @param {string} options.apiBase - Base URL.
+ * @param {string} options.outputDir - Base output directory.
+ * @param {number} [options.maxDepth=3] - Maximum recursion depth.
+ * @param {number} [options.currentDepth=0] - Current recursion depth.
+ * @returns {Promise<{card: object, children: Array}>} - Card data and all children data.
+ */
+async function downloadCardRecursive({ cardId, token, apiBase, outputDir, maxDepth = 3, currentDepth = 0 }) {
+  log('downloadCardRecursive called with cardId=%s, depth=%d/%d', cardId, currentDepth, maxDepth);
+  
+  // Download the current card
+  const { card, markdown, comments, children } = await downloadCard({ 
+    cardId, 
+    token, 
+    apiBase, 
+    includeChildren: true 
+  });
+  
+  // Create directory structure for this card
+  const cardDir = path.join(outputDir, cardId.toString());
+  await mkdir(cardDir, { recursive: true });
+  
+  // Save card files
+  const mdPath = path.join(cardDir, 'card.md');
+  const jsonPath = path.join(cardDir, 'card.json');
+  
+  await writeFile(mdPath, markdown, 'utf-8');
+  await writeFile(jsonPath, JSON.stringify(card, null, 2), 'utf-8');
+  
+  console.log(`  ✓ Card ${cardId}: ${card.title}`);
+  
+  // Save comments if they exist
+  if (comments && comments.length > 0) {
+    const commentsDir = path.join(cardDir, 'comments');
+    await mkdir(commentsDir, { recursive: true });
+    
+    for (let i = 0; i < comments.length; i++) {
+      const comment = comments[i];
+      const commentFileName = `comment_${i + 1}_${comment.id || 'unknown'}.json`;
+      const commentPath = path.join(commentsDir, commentFileName);
+      await writeFile(commentPath, JSON.stringify(comment, null, 2), 'utf-8');
+    }
+  }
+  
+  // Download all files
+  if (card.files && card.files.length > 0) {
+    const filesDir = path.join(cardDir, 'files');
+    await mkdir(filesDir, { recursive: true });
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    
+    for (const file of card.files) {
+      const fileName = file.name || `file_${file.id}`;
+      const filePath = path.join(filesDir, fileName);
+      
+      try {
+        await downloadFile(file.url, filePath, headers);
+        console.log(`    - Downloaded: ${fileName}`);
+      } catch (err) {
+        console.error(`    - Failed to download ${fileName}: ${err.message}`);
+      }
+    }
+  }
+  
+  // Recursively download children if within depth limit
+  const downloadedChildren = [];
+  if (children && children.length > 0 && currentDepth < maxDepth) {
+    const childrenDir = path.join(cardDir, 'children');
+    await mkdir(childrenDir, { recursive: true });
+    
+    console.log(`    Downloading ${children.length} children...`);
+    
+    for (const child of children) {
+      try {
+        const childData = await downloadCardRecursive({
+          cardId: child.id,
+          token,
+          apiBase,
+          outputDir: childrenDir,
+          maxDepth,
+          currentDepth: currentDepth + 1
+        });
+        downloadedChildren.push(childData);
+      } catch (err) {
+        console.error(`    - Failed to download child card ${child.id}: ${err.message}`);
+      }
+    }
+  } else if (children && children.length > 0) {
+    console.log(`    Skipping ${children.length} children (max depth ${maxDepth} reached)`);
+  }
+  
+  return { card, children: downloadedChildren };
 }
 
 /**
@@ -408,6 +569,18 @@ if (invokedPath === currentFilePath) {
       type: 'boolean',
       default: false
     })
+    .option('recursive', {
+      alias: 'r',
+      describe: 'Recursively download all children cards',
+      type: 'boolean',
+      default: false
+    })
+    .option('max-depth', {
+      alias: 'd',
+      describe: 'Maximum recursion depth for children cards (default: 3)',
+      type: 'number',
+      default: 3
+    })
     .help()
     .alias('help', 'h')
     .argv;
@@ -422,33 +595,58 @@ if (invokedPath === currentFilePath) {
   
   try {
     const { cardId, apiBase } = parseCardInput(String(cardInput));
-    const { card, markdown, comments } = await downloadCard({ cardId, token: argv.token, apiBase });
     
     // If stdout-only mode, just output the markdown and exit
     if (argv.stdoutOnly) {
+      const { card, markdown, comments } = await downloadCard({ 
+        cardId, 
+        token: argv.token, 
+        apiBase, 
+        includeChildren: argv.recursive 
+      });
       console.log(markdown);
       process.exit(0);
     }
     
     // Determine output directory
     const subdomain = extractSubdomain(apiBase);
-    const outputDir = argv.outputDir || path.join('./data', subdomain, cardId);
+    const outputDir = argv.outputDir || path.join('./data', subdomain);
+    
+    // Use recursive download if requested
+    if (argv.recursive) {
+      console.log(`✓ Starting recursive download (max depth: ${argv.maxDepth})...`);
+      await downloadCardRecursive({
+        cardId,
+        token: argv.token,
+        apiBase,
+        outputDir,
+        maxDepth: argv.maxDepth
+      });
+      console.log(`✓ Recursive download completed!`);
+      process.exit(0);
+    }
+    
+    // Regular single card download
+    const { card, markdown, comments } = await downloadCard({ cardId, token: argv.token, apiBase });
+    
+    // Use the single card output directory structure
+    const cardOutputDir = argv.outputDir || path.join('./data', subdomain, cardId);
     
     // Create directory structure
-    await mkdir(outputDir, { recursive: true });
-    const filesDir = path.join(outputDir, 'files');
+    await mkdir(cardOutputDir, { recursive: true });
+    const filesDir = path.join(cardOutputDir, 'files');
     if (card.files && card.files.length > 0) {
       await mkdir(filesDir, { recursive: true });
     }
-    const commentsDir = path.join(outputDir, 'comments');
+    const commentsDir = path.join(cardOutputDir, 'comments');
     if (comments && comments.length > 0) {
       await mkdir(commentsDir, { recursive: true });
     }
-    log('Created directory: %s', outputDir);
+    log('Created directory: %s', cardOutputDir);
     
     // Save both files
-    const mdPath = path.join(outputDir, 'card.md');
-    const jsonPath = path.join(outputDir, 'card.json');
+    const mdPath = path.join(cardOutputDir, 'card.md');
+    const jsonPath = path.join(cardOutputDir, 'card.json');
     
     await writeFile(mdPath, markdown, 'utf-8');
     await writeFile(jsonPath, JSON.stringify(card, null, 2), 'utf-8');

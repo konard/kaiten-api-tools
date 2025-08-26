@@ -392,7 +392,9 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
       );
       
       for (const comment of sortedComments) {
-        const author = comment.author?.full_name || comment.author?.username || 'Unknown';
+        const author = comment.author?.username 
+          ? `@${comment.author.username}` 
+          : (comment.author?.full_name || 'Unknown');
         const date = formatCommentDate(comment.created);
         md += `### By ${author} at ${date}\n\n`;
         md += comment.text || '';

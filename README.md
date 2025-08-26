@@ -8,15 +8,14 @@ A collection of Node.js tools for working with the Kaiten API (https://developer
 ## 🚀 Quick Start
 
 ```bash
-# Set up environment
+# Set up environment (only token is required)
 export KAITEN_API_TOKEN="your-api-token"
-export KAITEN_API_BASE_URL="https://your-instance.kaiten.ru/api/v1"
 
-# Download a single card
-node download-card.mjs 12345 --stdout-only
+# Download a single card by URL (no additional setup needed)
+node download-card.mjs "https://company.kaiten.ru/space/123/boards/card/12345" --stdout-only
 
 # Download card with all children recursively
-node download-card.mjs 12345 --recursive --output-dir ./cards
+node download-card.mjs "https://company.kaiten.ru/12345" --recursive --output-dir ./cards
 ```
 
 ## 📥 download-card.mjs
@@ -38,14 +37,17 @@ The main tool for downloading Kaiten cards and converting them to Markdown forma
 #### Basic Usage
 
 ```bash
-# Download card by ID (requires environment variables)
+# Download card by URL (recommended)
+node download-card.mjs "https://company.kaiten.ru/space/123/boards/card/12345"
+
+# Download card by ID (requires KAITEN_API_BASE_URL environment variable)
 node download-card.mjs 12345
 
-# Download with API token
+# Download with API token override
 node download-card.mjs 12345 --token your-api-token
 
 # Output to stdout instead of files
-node download-card.mjs 12345 --stdout-only
+node download-card.mjs "https://company.kaiten.ru/12345" --stdout-only
 
 # Specify output directory
 node download-card.mjs 12345 --output-dir ./my-cards
@@ -68,13 +70,13 @@ node download-card.mjs "https://company.kaiten.ru/12345"
 
 ```bash
 # Download card with all children (creates folder structure)
-node download-card.mjs 12345 --recursive --max-depth 3
+node download-card.mjs "https://company.kaiten.ru/12345" --recursive --max-depth 3
 
 # Skip file downloads, keep direct Kaiten URLs
-node download-card.mjs 12345 --skip-files-download
+node download-card.mjs "https://company.kaiten.ru/12345" --skip-files-download
 
 # Combine options
-node download-card.mjs 12345 --recursive --skip-files-download --output-dir ./cards
+node download-card.mjs "https://company.kaiten.ru/12345" --recursive --skip-files-download --output-dir ./cards
 ```
 
 ### Output Structure
@@ -82,21 +84,31 @@ node download-card.mjs 12345 --recursive --skip-files-download --output-dir ./ca
 When downloading to files (without `--stdout-only`):
 
 ```
-card-12345/
-├── card.md          # Main card in Markdown
-├── card.json        # Raw JSON data
-├── comments.json    # All comments
-├── files/          # Downloaded attachments (if not using --skip-files-download)
-│   ├── document.pdf
-│   └── image.png
-└── children/       # Child cards (if using --recursive)
-    ├── 12346/
-    │   ├── card.md
-    │   └── ...
-    └── 12347/
-        ├── card.md
-        └── ...
+data/
+└── <subdomain>/           # Kaiten instance subdomain (e.g., "company", "myorg")
+    └── <card-id>/         # Card ID (e.g., "12345")
+        ├── card.md        # Main card in Markdown format
+        ├── card.json      # Raw JSON card data
+        ├── comments/      # Individual comment files
+        │   ├── comment_1_123456.json
+        │   ├── comment_2_123457.json
+        │   └── ...
+        ├── files/         # Downloaded attachments (if not using --skip-files-download)
+        │   ├── document.pdf
+        │   ├── image.png
+        │   └── screenshot.png
+        └── children/      # Child cards (if using --recursive)
+            ├── 12346/
+            │   ├── card.md
+            │   ├── card.json
+            │   ├── comments/
+            │   └── files/
+            └── 12347/
+                ├── card.md
+                └── ...
 ```
+
+**Example output path:** `./data/company/12345/` for card 12345 from company.kaiten.ru
 
 ### Markdown Output Format
 
@@ -115,11 +127,13 @@ Generated Markdown includes:
 ```bash
 # Required
 KAITEN_API_TOKEN=your-api-token-here
-KAITEN_API_BASE_URL=https://your-instance.kaiten.ru/api/v1
 
-# Optional  
+# Optional (can be inferred from card URLs)
+KAITEN_API_BASE_URL=https://your-instance.kaiten.ru/api/v1
 DEBUG=kaiten:*  # Enable debug logging
 ```
+
+**Note**: `KAITEN_API_BASE_URL` is only required when using card IDs directly. When providing full card URLs, the base URL is automatically extracted.
 
 ### CLI Options
 
@@ -142,7 +156,7 @@ import { downloadCard } from './download-card.mjs';
 const { card, markdown, comments, children } = await downloadCard({
   cardId: 12345,
   token: 'your-token',
-  apiBase: 'https://company.kaiten.ru/api/v1'
+  apiBase: 'https://yourcompany.kaiten.ru/api/v1'
 });
 
 // With options

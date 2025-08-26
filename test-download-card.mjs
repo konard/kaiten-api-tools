@@ -578,7 +578,7 @@ test('CLI: should support combined --recursive and --skip-files-download options
 
 test('downloadCard: should handle API errors gracefully', async () => {
   try {
-    await downloadCard({ cardId: 'nonexistent', token });
+    await downloadCard({ cardId: 'nonexistent', token, quiet: true });
     equal(false, true, 'Should have thrown an error');
   } catch (err) {
     equal(typeof err, 'object');

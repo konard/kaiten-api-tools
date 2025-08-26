@@ -161,9 +161,10 @@ async function fetchCardChildren({ cardId, token, apiBase }) {
  * @param {string} [options.apiBase='https://developers.kaiten.ru/v1'] - Base URL.
  * @param {boolean} [options.includeChildren=false] - Whether to include children cards.
  * @param {boolean} [options.skipFiles=false] - Whether to skip file downloads and use direct URLs.
+ * @param {boolean} [options.quiet=false] - Whether to suppress error console output.
  * @returns {Promise<{card: object, markdown: string, comments: Array, children: Array}>} - Card data, markdown representation, comments, and children data.
  */
-export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL, includeChildren = false, skipFiles = false }) {
+export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL, includeChildren = false, skipFiles = false, quiet = false }) {
   log('downloadCardToMarkdown called with cardId=%s, apiBase=%s', cardId, apiBase);
   if (!cardId) throw new Error('cardId is required');
   if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
@@ -426,11 +427,17 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
   } catch (err) {
     if (typeof err.toJSON === 'function') {
       log('AxiosError toJSON:', JSON.stringify(err.toJSON(), null, 2));
-      console.error('AxiosError:', JSON.stringify(err.toJSON(), null, 2));
+      if (!quiet) {
+        console.error('AxiosError:', JSON.stringify(err.toJSON(), null, 2));
+      }
     } else if (err.response?.data) {
-      console.error(JSON.stringify(err.response.data, null, 2));
+      if (!quiet) {
+        console.error(JSON.stringify(err.response.data, null, 2));
+      }
     } else {
-      console.error(err);
+      if (!quiet) {
+        console.error(err);
+      }
     }
     throw err;
   }

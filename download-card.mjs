@@ -160,9 +160,10 @@ async function fetchCardChildren({ cardId, token, apiBase }) {
  * @param {string} options.token - API token.
  * @param {string} [options.apiBase='https://developers.kaiten.ru/v1'] - Base URL.
  * @param {boolean} [options.includeChildren=false] - Whether to include children cards.
+ * @param {boolean} [options.skipFiles=false] - Whether to skip file downloads and use direct URLs.
  * @returns {Promise<{card: object, markdown: string, comments: Array, children: Array}>} - Card data, markdown representation, comments, and children data.
  */
-export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL, includeChildren = false }) {
+export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKEN, apiBase = process.env.KAITEN_API_BASE_URL, includeChildren = false, skipFiles = false }) {
   log('downloadCardToMarkdown called with cardId=%s, apiBase=%s', cardId, apiBase);
   if (!cardId) throw new Error('cardId is required');
   if (!apiBase) throw new Error('Set environment variable KAITEN_API_BASE_URL');
@@ -375,10 +376,20 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
         md += `- **Size**: ${file.size} bytes\n`;
         if (file.created) md += `- **Created**: ${file.created}\n`;
         
-        if (isImage) {
-          md += `\n<img src="./files/${fileName}" alt="${fileName}" />\n`;
+        if (skipFiles) {
+          // Use direct Kaiten URLs when skipping file downloads
+          if (isImage) {
+            md += `\n<img src="${file.url}" alt="${fileName}" />\n`;
+          } else {
+            md += `\n[${fileName}](${file.url})\n`;
+          }
         } else {
-          md += `\n[${fileName}](./files/${fileName})\n`;
+          // Use local file paths when downloading files
+          if (isImage) {
+            md += `\n<img src="./files/${fileName}" alt="${fileName}" />\n`;
+          } else {
+            md += `\n[${fileName}](./files/${fileName})\n`;
+          }
         }
         md += '\n';
       }
@@ -434,9 +445,10 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
  * @param {string} options.outputDir - Base output directory.
  * @param {number} [options.maxDepth=3] - Maximum recursion depth.
  * @param {number} [options.currentDepth=0] - Current recursion depth.
+ * @param {boolean} [options.skipFiles=false] - Whether to skip file downloads.
  * @returns {Promise<{card: object, children: Array}>} - Card data and all children data.
  */
-async function downloadCardRecursive({ cardId, token, apiBase, outputDir, maxDepth = 3, currentDepth = 0 }) {
+async function downloadCardRecursive({ cardId, token, apiBase, outputDir, maxDepth = 3, currentDepth = 0, skipFiles = false }) {
   log('downloadCardRecursive called with cardId=%s, depth=%d/%d', cardId, currentDepth, maxDepth);
   
   // Download the current card
@@ -444,7 +456,8 @@ async function downloadCardRecursive({ cardId, token, apiBase, outputDir, maxDep
     cardId, 
     token, 
     apiBase, 
-    includeChildren: true 
+    includeChildren: true,
+    skipFiles 
   });
   
   // Create directory structure for this card
@@ -473,8 +486,8 @@ async function downloadCardRecursive({ cardId, token, apiBase, outputDir, maxDep
     }
   }
   
-  // Download all files
-  if (card.files && card.files.length > 0) {
+  // Download all files (only if not skipping files)
+  if (card.files && card.files.length > 0 && !skipFiles) {
     const filesDir = path.join(cardDir, 'files');
     await mkdir(filesDir, { recursive: true });
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
@@ -490,6 +503,8 @@ async function downloadCardRecursive({ cardId, token, apiBase, outputDir, maxDep
         console.error(`    - Failed to download ${fileName}: ${err.message}`);
       }
     }
+  } else if (card.files && card.files.length > 0 && skipFiles) {
+    console.log(`    - Skipping ${card.files.length} file(s) (using direct URLs)`);
   }
   
   // Recursively download children if within depth limit
@@ -508,7 +523,8 @@ async function downloadCardRecursive({ cardId, token, apiBase, outputDir, maxDep
           apiBase,
           outputDir: childrenDir,
           maxDepth,
-          currentDepth: currentDepth + 1
+          currentDepth: currentDepth + 1,
+          skipFiles
         });
         downloadedChildren.push(childData);
       } catch (err) {
@@ -581,6 +597,12 @@ if (invokedPath === currentFilePath) {
       type: 'number',
       default: 3
     })
+    .option('skip-files-download', {
+      alias: 'f',
+      describe: 'Skip downloading files and use direct Kaiten URLs instead',
+      type: 'boolean',
+      default: false
+    })
     .help()
     .alias('help', 'h')
     .argv;
@@ -602,7 +624,8 @@ if (invokedPath === currentFilePath) {
         cardId, 
         token: argv.token, 
         apiBase, 
-        includeChildren: argv.recursive 
+        includeChildren: argv.recursive,
+        skipFiles: argv.skipFilesDownloadDownload
       });
       console.log(markdown);
       process.exit(0);
@@ -614,20 +637,27 @@ if (invokedPath === currentFilePath) {
     
     // Use recursive download if requested
     if (argv.recursive) {
-      console.log(`✓ Starting recursive download (max depth: ${argv.maxDepth})...`);
+      const skipMsg = argv.skipFilesDownload ? ' (skipping file downloads)' : '';
+      console.log(`✓ Starting recursive download (max depth: ${argv.maxDepth})${skipMsg}...`);
       await downloadCardRecursive({
         cardId,
         token: argv.token,
         apiBase,
         outputDir,
-        maxDepth: argv.maxDepth
+        maxDepth: argv.maxDepth,
+        skipFiles: argv.skipFilesDownloadDownload
       });
       console.log(`✓ Recursive download completed!`);
       process.exit(0);
     }
     
     // Regular single card download
-    const { card, markdown, comments } = await downloadCard({ cardId, token: argv.token, apiBase });
+    const { card, markdown, comments } = await downloadCard({ 
+      cardId, 
+      token: argv.token, 
+      apiBase, 
+      skipFiles: argv.skipFilesDownload 
+    });
     
     // Use the single card output directory structure
     const cardOutputDir = argv.outputDir || path.join('./data', subdomain, cardId);
@@ -635,7 +665,7 @@ if (invokedPath === currentFilePath) {
     // Create directory structure
     await mkdir(cardOutputDir, { recursive: true });
     const filesDir = path.join(cardOutputDir, 'files');
-    if (card.files && card.files.length > 0) {
+    if (card.files && card.files.length > 0 && !argv.skipFilesDownload) {
       await mkdir(filesDir, { recursive: true });
     }
     const commentsDir = path.join(cardOutputDir, 'comments');
@@ -667,20 +697,24 @@ if (invokedPath === currentFilePath) {
       }
     }
     
-    // Download all files
+    // Download all files (only if not skipping files)
     if (card.files && card.files.length > 0) {
-      console.log(`\n✓ Downloading ${card.files.length} file(s):`);
-      const headers = argv.token ? { Authorization: `Bearer ${argv.token}` } : {};
-      
-      for (const file of card.files) {
-        const fileName = file.name || `file_${file.id}`;
-        const filePath = path.join(filesDir, fileName);
+      if (argv.skipFilesDownload) {
+        console.log(`\n✓ Skipping ${card.files.length} file(s) (using direct URLs)`);
+      } else {
+        console.log(`\n✓ Downloading ${card.files.length} file(s):`);
+        const headers = argv.token ? { Authorization: `Bearer ${argv.token}` } : {};
         
-        try {
-          await downloadFile(file.url, filePath, headers);
-          console.log(`  - Downloaded: ./data/${subdomain}/${cardId}/files/"${fileName}"`);
-        } catch (err) {
-          console.error(`  - Failed to download ${fileName}: ${err.message}`);
+        for (const file of card.files) {
+          const fileName = file.name || `file_${file.id}`;
+          const filePath = path.join(filesDir, fileName);
+          
+          try {
+            await downloadFile(file.url, filePath, headers);
+            console.log(`  - Downloaded: ./data/${subdomain}/${cardId}/files/"${fileName}"`);
+          } catch (err) {
+            console.error(`  - Failed to download ${fileName}: ${err.message}`);
+          }
         }
       }
     }

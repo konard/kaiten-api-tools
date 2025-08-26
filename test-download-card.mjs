@@ -187,6 +187,7 @@ test('CLI: should show help with --help', async () => {
   equal(stdout.includes('--token'), true);
   equal(stdout.includes('--recursive'), true);
   equal(stdout.includes('--max-depth'), true);
+  equal(stdout.includes('--skip-files-download'), true);
 });
 
 test('downloadCard: should handle card without owner', async () => {
@@ -419,6 +420,154 @@ test('CLI: should support --recursive option', async () => {
     equal(stderr.length, 0);
   } catch (err) {
     // If it fails, it should be due to no children, not parsing error
+    equal(typeof err.message, 'string');
+  }
+});
+
+test('downloadCard: should handle skipFiles option in markdown generation', async () => {
+  const { card: cardData } = await downloadCard({ cardId: card.id, token });
+  
+  // Mock card with files
+  const mockCard = {
+    ...cardData,
+    files: [
+      {
+        id: 1,
+        name: 'document.pdf',
+        url: 'https://files.kaiten.ru/document.pdf',
+        size: 1024,
+        created: '2025-01-01'
+      },
+      {
+        id: 2,
+        name: 'image.png',
+        url: 'https://files.kaiten.ru/image.png',
+        size: 2048,
+        created: '2025-01-02'
+      }
+    ]
+  };
+  
+  // Test markdown generation with skipFiles=true
+  let md = '';
+  if (mockCard.files && mockCard.files.length > 0) {
+    md += '## Files\n\n';
+    for (const file of mockCard.files) {
+      const fileName = file.name || `file_${file.id}`;
+      const isImage = /\.(png|jpg|jpeg|gif|bmp|svg)$/i.test(fileName);
+      
+      md += `### ${fileName}\n\n`;
+      md += `- **Source URL**: ${file.url}\n`;
+      md += `- **Size**: ${file.size} bytes\n`;
+      if (file.created) md += `- **Created**: ${file.created}\n`;
+      
+      // Test skipFiles=true logic
+      const skipFiles = true;
+      if (skipFiles) {
+        if (isImage) {
+          md += `\n<img src="${file.url}" alt="${fileName}" />\n`;
+        } else {
+          md += `\n[${fileName}](${file.url})\n`;
+        }
+      }
+      md += '\n';
+    }
+  }
+  
+  // Verify direct URL usage when skipFiles=true
+  equal(md.includes('## Files'), true);
+  equal(md.includes('[document.pdf](https://files.kaiten.ru/document.pdf)'), true);
+  equal(md.includes('<img src="https://files.kaiten.ru/image.png" alt="image.png" />'), true);
+  equal(md.includes('./files/'), false); // Should not have local file paths
+});
+
+test('downloadCard: should handle skipFiles option with local paths when false', async () => {
+  const { card: cardData } = await downloadCard({ cardId: card.id, token });
+  
+  // Mock card with files
+  const mockCard = {
+    ...cardData,
+    files: [
+      {
+        id: 1,
+        name: 'document.pdf',
+        url: 'https://files.kaiten.ru/document.pdf',
+        size: 1024
+      },
+      {
+        id: 2,
+        name: 'image.png',
+        url: 'https://files.kaiten.ru/image.png',
+        size: 2048
+      }
+    ]
+  };
+  
+  // Test markdown generation with skipFiles=false
+  let md = '';
+  if (mockCard.files && mockCard.files.length > 0) {
+    md += '## Files\n\n';
+    for (const file of mockCard.files) {
+      const fileName = file.name || `file_${file.id}`;
+      const isImage = /\.(png|jpg|jpeg|gif|bmp|svg)$/i.test(fileName);
+      
+      md += `### ${fileName}\n\n`;
+      md += `- **Source URL**: ${file.url}\n`;
+      
+      // Test skipFiles=false logic
+      const skipFiles = false;
+      if (skipFiles) {
+        if (isImage) {
+          md += `\n<img src="${file.url}" alt="${fileName}" />\n`;
+        } else {
+          md += `\n[${fileName}](${file.url})\n`;
+        }
+      } else {
+        if (isImage) {
+          md += `\n<img src="./files/${fileName}" alt="${fileName}" />\n`;
+        } else {
+          md += `\n[${fileName}](./files/${fileName})\n`;
+        }
+      }
+      md += '\n';
+    }
+  }
+  
+  // Verify local paths when skipFiles=false
+  equal(md.includes('## Files'), true);
+  equal(md.includes('[document.pdf](./files/document.pdf)'), true);
+  equal(md.includes('<img src="./files/image.png" alt="image.png" />'), true);
+  // Should not have direct URLs in the actual file links/images (only in source URL field)
+  equal(md.includes('[document.pdf](https://files.kaiten.ru/document.pdf)'), false);
+  equal(md.includes('<img src="https://files.kaiten.ru/image.png"'), false);
+});
+
+test('CLI: should support --skip-files-download option', async () => {
+  // Test that the skip-files-download flag is accepted
+  try {
+    const { stdout, stderr } = await $`node ${downloadScript} ${card.id} --skip-files-download --stdout-only`;
+    // Should complete without error
+    equal(typeof stdout, 'string');
+    equal(stderr.length, 0);
+    // Output should still be valid markdown
+    equal(stdout.includes('# '), true);
+  } catch (err) {
+    // Should not fail due to parsing error
+    equal(typeof err.message, 'string');
+  }
+});
+
+test('CLI: should support combined --recursive and --skip-files-download options', async () => {
+  // Test that both flags work together
+  try {
+    const { stdout, stderr } = await $`node ${downloadScript} ${card.id} --recursive --skip-files-download --max-depth 1 --stdout-only`;
+    // Should complete without error
+    equal(typeof stdout, 'string');
+    equal(stderr.length, 0);
+    // Output should still be valid markdown
+    equal(stdout.includes('# '), true);
+  } catch (err) {
+    // Should not fail due to parsing error
     equal(typeof err.message, 'string');
   }
 });

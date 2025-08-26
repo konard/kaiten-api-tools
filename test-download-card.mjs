@@ -26,7 +26,12 @@ const path = pathModule.default || pathModule;
 
 // Load command-stream for CLI testing
 const commandStreamModule = await use('command-stream@0.3.0');
-const { $ } = commandStreamModule;
+const { $, create } = commandStreamModule;
+
+// OFFICIAL SOLUTION: Create quiet executor with mirror: false
+// Based on command-stream documentation: https://github.com/link-foundation/command-stream
+// This is the proper way to disable command mirroring for clean test output
+const quiet$ = create({ mirror: false });
 
 // Load environment variables from .env
 const { config } = await use('dotenv@16.1.4');
@@ -74,7 +79,7 @@ test('function export: should fetch and convert a card to markdown with a headin
 
 test('CLI: should match the function export output', async () => {
   const { markdown } = await downloadCard({ cardId: card.id, token });
-  const { stdout } = await $`node ${downloadScript} ${card.id} --stdout-only`;
+  const { stdout } = await quiet$`node ${downloadScript} ${card.id} --stdout-only`;
   equal(stdout.trim(), markdown.trim());
 });
 
@@ -84,7 +89,7 @@ test('parseCardInput: should handle numeric card ID with env var', async () => {
   const oldApiBase = process.env.KAITEN_API_BASE_URL;
   process.env.KAITEN_API_BASE_URL = apiBase;
   try {
-    const { stdout } = await $`node ${downloadScript} ${card.id} --stdout-only`;
+    const { stdout } = await quiet$`node ${downloadScript} ${card.id} --stdout-only`;
     equal(stdout.includes('# '), true);
   } finally {
     if (oldApiBase) {
@@ -97,14 +102,14 @@ test('parseCardInput: should handle numeric card ID with env var', async () => {
 
 test('parseCardInput: should handle board card URL format', async () => {
   const testUrl = `${apiBase.replace('/api/v1', '')}/space/583628/boards/card/${card.id}`;
-  const { stdout } = await $`node ${downloadScript} ${testUrl} --stdout-only`;
+  const { stdout } = await quiet$`node ${downloadScript} ${testUrl} --stdout-only`;
   // Should successfully parse and return markdown
   equal(stdout.includes('# '), true);
 });
 
 test('parseCardInput: should handle simple URL format', async () => {
   const testUrl = `${apiBase.replace('/api/v1', '')}/${card.id}`;
-  const { stdout } = await $`node ${downloadScript} ${testUrl} --stdout-only`;
+  const { stdout } = await quiet$`node ${downloadScript} ${testUrl} --stdout-only`;
   // Should successfully parse and return markdown
   equal(stdout.includes('# '), true);
 });
@@ -128,7 +133,7 @@ test('downloadCard: should include card metadata in markdown', async () => {
 test('CLI: should support --output-dir option', async () => {
   const tempDir = './test-output-' + Date.now();
   try {
-    const { stderr } = await $`node ${downloadScript} ${card.id} --output-dir ${tempDir}`;
+    const { stderr } = await quiet$`node ${downloadScript} ${card.id} --output-dir ${tempDir}`;
     // Should complete without error
     equal(stderr.length, 0);
     
@@ -151,13 +156,13 @@ test('CLI: should support --output-dir option', async () => {
 });
 
 test('CLI: should support --token option', async () => {
-  const { stdout } = await $`node ${downloadScript} ${card.id} --token ${token} --stdout-only`;
+  const { stdout } = await quiet$`node ${downloadScript} ${card.id} --token ${token} --stdout-only`;
   equal(stdout.includes('# '), true);
 });
 
 test('CLI: should handle nonexistent card ID gracefully', async () => {
   try {
-    const result = await $`node ${downloadScript} 999999999 --stdout-only`;
+    const result = await quiet$`node ${downloadScript} 999999999 --stdout-only`;
     // If we get here, check if it's an error exit code
     equal(result.code !== 0, true, 'Should have non-zero exit code');
   } catch (err) {
@@ -169,7 +174,7 @@ test('CLI: should handle nonexistent card ID gracefully', async () => {
 
 test('CLI: should handle missing card ID', async () => {
   try {
-    const result = await $`node ${downloadScript} --stdout-only`;
+    const result = await quiet$`node ${downloadScript} --stdout-only`;
     // If we get here, check if it's an error exit code
     equal(result.code !== 0, true, 'Should have non-zero exit code');
   } catch (err) {
@@ -180,7 +185,7 @@ test('CLI: should handle missing card ID', async () => {
 });
 
 test('CLI: should show help with --help', async () => {
-  const { stdout } = await $`node ${downloadScript} --help`;
+  const { stdout } = await quiet$`node ${downloadScript} --help`;
   equal(stdout.includes('Usage:'), true);
   equal(stdout.includes('--stdout-only'), true);
   equal(stdout.includes('--output-dir'), true);
@@ -357,7 +362,6 @@ test('downloadCard: should include children information when includeChildren is 
 });
 
 test('downloadCard: should handle children cards structure in markdown', async () => {
-  const { card: cardData } = await downloadCard({ cardId: card.id, token });
   
   // Mock children data
   const mockChildren = [
@@ -414,7 +418,7 @@ test('downloadCard: should handle children cards structure in markdown', async (
 test('CLI: should support --recursive option', async () => {
   // Test that the recursive flag is accepted (may not have actual children to test with)
   try {
-    const { stdout, stderr } = await $`node ${downloadScript} ${card.id} --recursive --max-depth 1 --stdout-only`;
+    const { stdout, stderr } = await quiet$`node ${downloadScript} ${card.id} --recursive --max-depth 1 --stdout-only`;
     // Should complete without error, even if no children exist
     equal(typeof stdout, 'string');
     equal(stderr.length, 0);
@@ -545,7 +549,7 @@ test('downloadCard: should handle skipFiles option with local paths when false',
 test('CLI: should support --skip-files-download option', async () => {
   // Test that the skip-files-download flag is accepted
   try {
-    const { stdout, stderr } = await $`node ${downloadScript} ${card.id} --skip-files-download --stdout-only`;
+    const { stdout, stderr } = await quiet$`node ${downloadScript} ${card.id} --skip-files-download --stdout-only`;
     // Should complete without error
     equal(typeof stdout, 'string');
     equal(stderr.length, 0);
@@ -560,7 +564,7 @@ test('CLI: should support --skip-files-download option', async () => {
 test('CLI: should support combined --recursive and --skip-files-download options', async () => {
   // Test that both flags work together
   try {
-    const { stdout, stderr } = await $`node ${downloadScript} ${card.id} --recursive --skip-files-download --max-depth 1 --stdout-only`;
+    const { stdout, stderr } = await quiet$`node ${downloadScript} ${card.id} --recursive --skip-files-download --max-depth 1 --stdout-only`;
     // Should complete without error
     equal(typeof stdout, 'string');
     equal(stderr.length, 0);
@@ -585,7 +589,7 @@ test('downloadCard: should handle API errors gracefully', async () => {
 // Test error handling for invalid URLs
 test('CLI: should handle invalid URL format', async () => {
   try {
-    const result = await $`node ${downloadScript} not-a-valid-url --stdout-only`;
+    const result = await quiet$`node ${downloadScript} not-a-valid-url --stdout-only`;
     // If we get here, check if it's an error exit code
     equal(result.code !== 0, true, 'Should have non-zero exit code');
   } catch (err) {

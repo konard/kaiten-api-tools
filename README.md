@@ -20,17 +20,17 @@ node download-card.mjs "https://company.kaiten.ru/12345" --recursive --output-di
 
 ## 📥 download-card.mjs
 
-The main tool for downloading Kaiten cards and converting them to Markdown format with comprehensive metadata, comments, files, checklists, and children cards.
+Downloads Kaiten cards and converts them to Markdown format with metadata, comments, files, checklists, and children cards.
 
 ### Features
 
-- **📝 Markdown Export**: Converts cards to clean, readable Markdown
+- **📝 Markdown Export**: Converts cards to Markdown
 - **✅ Checklist Support**: Handles all checklist formats with completion status
 - **📎 File Downloads**: Downloads attachments or keeps direct links
 - **🌳 Recursive Children**: Downloads entire card hierarchies  
 - **💬 Comments Export**: Includes all card comments with metadata
-- **🔗 Smart URL Parsing**: Accepts card IDs, URLs, or board card URLs
-- **📊 Rich Metadata**: Card status, type, assignee, dates, and more
+- **🔗 URL Parsing**: Accepts card IDs, URLs, or board card URLs
+- **📊 Metadata**: Card status, type, assignee, dates, and more
 
 ### Usage
 

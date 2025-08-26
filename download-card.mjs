@@ -33,11 +33,9 @@ const log = debug('kaiten:download-card');
 const { config } = await use('dotenv@16.1.4');
 config({ path: path.resolve(process.cwd(), '.env') });
 
-// Import axios and turndown correctly
+// Import axios
 const axiosModule = await use('axios@1.9.0');
 const axios = axiosModule.default || axiosModule;
-const turndownModule = await use('turndown@7.2.0');
-const TurndownService = turndownModule.default || turndownModule;
 
 // Import yargs for CLI argument parsing
 const yargsModule = await use('yargs@17.7.2');
@@ -175,6 +173,24 @@ function getCommentFileName(comment) {
 }
 
 /**
+ * Format a date to ISO-like format for comments: YYYY-MM-DD HH:MM:SS
+ * @param {string|Date} dateString - Date string or Date object
+ * @returns {string} - Formatted date string
+ */
+function formatCommentDate(dateString) {
+  if (!dateString) return 'Unknown date';
+  
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  const second = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+}
+
+/**
  * Download Kaiten card data and convert to Markdown.
  * @param {object} options
  * @param {string} options.cardId - The Kaiten card ID.
@@ -208,8 +224,6 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
       log('Found %d children for card %s', children.length, cardId);
     }
     
-    const turndownService = new TurndownService();
-
     let md = `# ${card.title}\n\n`;
     md += `- **ID**: ${card.id}\n`;
     if (card.owner) {
@@ -288,8 +302,8 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
     }
     
     md += `\n## Description\n\n`;
-    md += card.description ? turndownService.turndown(card.description) : '';
-    log('Converted description to Markdown');
+    md += card.description || '';
+    log('Added description to Markdown');
     md += '\n';
     
     // Add checklists section if any checklists exist
@@ -379,7 +393,7 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
       
       for (const comment of sortedComments) {
         const author = comment.author?.full_name || comment.author?.username || 'Unknown';
-        const date = new Date(comment.created).toLocaleString();
+        const date = formatCommentDate(comment.created);
         md += `### By ${author} at ${date}\n\n`;
         md += comment.text || '';
         md += '\n\n';

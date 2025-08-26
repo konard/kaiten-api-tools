@@ -154,6 +154,27 @@ async function fetchCardChildren({ cardId, token, apiBase }) {
 }
 
 /**
+ * Generate a sortable filename from a comment's creation date.
+ * @param {object} comment - Comment object with created timestamp.
+ * @returns {string} - Filename in format YYYY-MM-DD-HH-MM-SS-mmm.json
+ */
+function getCommentFileName(comment) {
+  if (!comment.created) {
+    return `${comment.id || 'unknown'}.json`;
+  }
+  
+  const date = new Date(comment.created);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const hour = String(date.getUTCHours()).padStart(2, '0');
+  const minute = String(date.getUTCMinutes()).padStart(2, '0');
+  const second = String(date.getUTCSeconds()).padStart(2, '0');
+  const ms = String(date.getUTCMilliseconds()).padStart(3, '0');
+  return `${year}-${month}-${day}-${hour}-${minute}-${second}-${ms}.json`;
+}
+
+/**
  * Download Kaiten card data and convert to Markdown.
  * @param {object} options
  * @param {string} options.cardId - The Kaiten card ID.
@@ -487,7 +508,7 @@ async function downloadCardRecursive({ cardId, token, apiBase, outputDir, maxDep
     
     for (let i = 0; i < comments.length; i++) {
       const comment = comments[i];
-      const commentFileName = `comment_${i + 1}_${comment.id || 'unknown'}.json`;
+      const commentFileName = getCommentFileName(comment);
       const commentPath = path.join(commentsDir, commentFileName);
       await writeFile(commentPath, JSON.stringify(comment, null, 2), 'utf-8');
     }
@@ -697,7 +718,7 @@ if (invokedPath === currentFilePath) {
       console.log(`\n✓ Saving ${comments.length} comment(s):`);
       for (let i = 0; i < comments.length; i++) {
         const comment = comments[i];
-        const commentFileName = `comment_${i + 1}_${comment.id || 'unknown'}.json`;
+        const commentFileName = getCommentFileName(comment);
         const commentPath = path.join(commentsDir, commentFileName);
         await writeFile(commentPath, JSON.stringify(comment, null, 2), 'utf-8');
         console.log(`  - Saved: ./${commentPath}`);

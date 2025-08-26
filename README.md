@@ -89,9 +89,9 @@ data/
     └── <card-id>/         # Card ID (e.g., "12345")
         ├── card.md        # Main card in Markdown format
         ├── card.json      # Raw JSON card data
-        ├── comments/      # Individual comment files
-        │   ├── comment_1_123456.json
-        │   ├── comment_2_123457.json
+        ├── comments/      # Individual comment files (sortable by creation date)
+        │   ├── 2025-08-22-00-21-15-156.json
+        │   ├── 2025-08-22-00-22-10-432.json
         │   └── ...
         ├── files/         # Downloaded attachments (if not using --skip-files-download)
         │   ├── document.pdf

@@ -381,7 +381,7 @@ export async function downloadCard({ cardId, token = process.env.KAITEN_API_TOKE
         const author = comment.author?.full_name || comment.author?.username || 'Unknown';
         const date = new Date(comment.created).toLocaleString();
         md += `### By ${author} at ${date}\n\n`;
-        md += comment.text ? turndownService.turndown(comment.text) : '';
+        md += comment.text || '';
         md += '\n\n';
       }
     }

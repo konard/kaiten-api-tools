@@ -82,7 +82,7 @@ function parseCardInput(input) {
     const url = new URL(input);
     let cardId;
     
-    // Handle board card URL format: https://hq.kaiten.ru/space/583628/boards/card/54133274
+    // Handle board card URL format: https://company.kaiten.ru/space/123/boards/card/12345
     if (url.pathname.includes('/boards/card/')) {
       const pathParts = url.pathname.split('/');
       const cardIndex = pathParts.findIndex(part => part === 'card');

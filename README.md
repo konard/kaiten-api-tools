@@ -3,7 +3,7 @@
 
 # kaiten-api-tools
 
-A collection of Node.js tools for working with the Kaiten API (https://developers.kaiten.ru). These tools help you download cards, create resources, and manage your Kaiten workspace programmatically.
+A collection of Node.js tools for working with the Kaiten API (https://developers.kaiten.ru). These tools help you download cards with metadata, comments, files, and checklists, plus create spaces, boards, cards, and columns.
 
 ## 🚀 Quick Start
 
@@ -84,7 +84,7 @@ node download-card.mjs "https://company.kaiten.ru/12345" --recursive --skip-file
 When downloading to files (without `--stdout-only`):
 
 ```
-data/
+./data/
 └── <subdomain>/           # Kaiten instance subdomain (e.g., "company", "myorg")
     └── <card-id>/         # Card ID (e.g., "12345")
         ├── card.md        # Main card in Markdown format
@@ -140,7 +140,7 @@ DEBUG=kaiten:*  # Enable debug logging
 | Option | Description |
 |--------|-------------|
 | `--stdout-only` | Output Markdown to stdout instead of files |
-| `--output-dir <dir>` | Specify output directory (default: ./card-{id}) |
+| `--output-dir <dir>` | Specify output directory (default: ./data) |
 | `--token <token>` | API token (overrides environment variable) |
 | `--recursive` | Download all children cards recursively |
 | `--max-depth <n>` | Maximum recursion depth (default: 3) |
@@ -216,4 +216,4 @@ node test-command-stream.mjs
 
 ## 📚 API Reference
 
-Built using the official [Kaiten API documentation](https://developers.kaiten.ru). Supports all standard Kaiten card operations including metadata, comments, files, checklists, and hierarchical relationships.
+Built using the official [Kaiten API documentation](https://developers.kaiten.ru). Supports downloading cards with metadata, comments, files, checklists, and hierarchical relationships, plus creating spaces, boards, cards, and columns.
